@@ -6,11 +6,11 @@ set -o pipefail
 mkdir -p data
 
 function curl_etag() {
-  curl -L \
+  echo "Fetching $1.csv " && curl -L \
     --etag-save "$1.etag" \
     --etag-compare "$1.etag" \
     -o "$1.csv" \
-    $2
+    $2 && echo ""
 }
 
 curl_etag \
