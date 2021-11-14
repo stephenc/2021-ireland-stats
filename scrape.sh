@@ -9,6 +9,7 @@ function curl_etag() {
   echo "Fetching $1.csv " && curl -L \
     --etag-save "$1.etag" \
     --etag-compare "$1.etag" \
+    --remote-time \
     -o "$1.csv" \
     $2 && echo ""
 }
