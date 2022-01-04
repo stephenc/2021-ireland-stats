@@ -236,7 +236,7 @@ public class graphs {
                     .setMarker(SeriesMarkers.NONE);
         }
 
-        BitmapEncoder.saveBitmap(chart, "./graphs/COVID-COVID-19_NOCA_ICUBIS_Historic_Time_Series.png",
+        BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_NOCA_ICUBIS_Historic_Time_Series.png",
                 BitmapEncoder.BitmapFormat.PNG);
 
         chart = new XYChartBuilder()
@@ -273,7 +273,7 @@ public class graphs {
                     .setMarker(SeriesMarkers.NONE);
         }
 
-        BitmapEncoder.saveBitmap(chart, "./graphs/COVID-COVID-19_ICU_Vs_All_Hospitalized.png",
+        BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_ICU_Vs_All_Hospitalized.png",
                 BitmapEncoder.BitmapFormat.PNG);
 
         chart = new XYChartBuilder()
@@ -309,7 +309,7 @@ public class graphs {
                     .setMarker(SeriesMarkers.NONE);
         }
 
-        BitmapEncoder.saveBitmap(chart, "./graphs/COVID-COVID-19_Hospitalized_Fraction_ICU.png",
+        BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_Hospitalized_Fraction_ICU.png",
                 BitmapEncoder.BitmapFormat.PNG);
 
         chart = new XYChartBuilder()
