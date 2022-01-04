@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.OffsetDateTime;
+import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,6 +23,8 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.knowm.xchart.BitmapEncoder;
+import org.knowm.xchart.CategoryChart;
+import org.knowm.xchart.CategoryChartBuilder;
 import org.knowm.xchart.XYChart;
 import org.knowm.xchart.XYChartBuilder;
 import org.knowm.xchart.XYSeries;
@@ -118,16 +121,54 @@ public class graphs {
                 BitmapEncoder.BitmapFormat.PNG);
 
 
+        CategoryChart chart2 = new CategoryChartBuilder()
+                .width(1200)
+                .height(675)
+                .theme(Styler.ChartTheme.Matlab)
+                .xAxisTitle("Date")
+                .yAxisTitle("Number of cases")
+                .title("Covid-19 Hospital cases breakdown")
+                .build();
+        chart2.getStyler().setDatePattern("dd-MMM-yyyy");
+        chart2.getStyler().setXAxisLabelRotation(90);
+        chart2.getStyler().setStacked(true);
+
+        {
+            List<Date> times = new ArrayList<>(acuteHospitals.size());
+            List<Number> values1 = new ArrayList<>(acuteHospitals.size());
+            List<Number> values2 = new ArrayList<>(acuteHospitals.size());
+            List<Number> values3 = new ArrayList<>(acuteHospitals.size());
+            OffsetDateTime cutOff = OffsetDateTime.now().minus(Period.of(0,0,28));
+            String threshold = cutOff.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+            acuteHospitals.stream().filter(r -> r.timestamp.compareTo(threshold) > 0).forEach(r -> {
+                times.add(parseTimestamp(r.timestamp));
+                values1.add(r.admissionsCovidPositive);
+                if (r.admissionsCovidPositive != null && r.newCovidCasesCovid != null && r.newCovidCasesCovid > 0) {
+                    values2.add(r.newCovidCasesCovid-r.admissionsCovidPositive);
+                } else {
+                    values2.add(null);
+                }
+                values3.add(r.newCovidCasesCovid);
+            });
+            chart2.addSeries("Admissions", times, values1)
+                    .setMarker(SeriesMarkers.NONE);
+            chart2.addSeries("Non-Admissions", times, values2)
+                    .setMarker(SeriesMarkers.NONE);
+        }
+
+        BitmapEncoder.saveBitmap(chart2, "./graphs/COVID-19_SDU_Acute_Hospital_Time_Series_New_cases_breakdown.png",
+                BitmapEncoder.BitmapFormat.PNG);
+
         chart = new XYChartBuilder()
                 .width(1200)
                 .height(675)
                 .theme(Styler.ChartTheme.Matlab)
                 .xAxisTitle("Date")
-                .yAxisTitle("Ratio")
+                .yAxisTitle("% of new cases in hospital")
                 .title("Covid-19 Hospital admissions as a fraction of new cases in Hospital")
                 .build();
         chart.getStyler().setDatePattern("dd-MMM-yyyy");
-        chart.getStyler().setYAxisMax(1.0);
+        chart.getStyler().setYAxisMax(100.0);
         chart.getStyler().setYAxisMin(0.0);
 
         {
@@ -136,12 +177,12 @@ public class graphs {
             acuteHospitals.stream().filter(r -> r.timestamp.compareTo("2021/07") > 0).forEach(r -> {
                 times.add(parseTimestamp(r.timestamp));
                 if (r.admissionsCovidPositive != null && r.newCovidCasesCovid != null && r.newCovidCasesCovid > 0) {
-                    values.add(r.admissionsCovidPositive * 1.0 / r.newCovidCasesCovid);
+                    values.add(r.admissionsCovidPositive * 100.0 / r.newCovidCasesCovid);
                 } else {
                     values.add(null);
                 }
             });
-            chart.addSeries("Ratio", times, values)
+            chart.addSeries("Admissions", times, values)
                     .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
                     .setMarker(SeriesMarkers.NONE);
         }
