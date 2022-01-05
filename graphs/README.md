@@ -2,6 +2,14 @@
 
 These graphs are generated automatically by a GitHub action.
 
+## Overview
+
+![Animated graph](./COVID-19_Labs_Hospitalized_ICU.gif)
+
+NOTE: Deaths have a minimum Gaussian smoothing factor of sigma = 5 days to correct for the weekly publishing of deaths from Mid-2021 onwards
+
+![Gaussian smoothing sigma 3 days](./COVID-19_Labs_Hospitalized_ICU-03.0.png)
+
 ## Laboratory testing
 
 ![graph](./COVID-19_Laboratory_Testing_Time_Series.png)
