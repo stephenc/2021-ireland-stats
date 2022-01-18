@@ -14,13 +14,19 @@ import java.awt.image.RenderedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.Period;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -44,6 +50,8 @@ import org.knowm.xchart.style.markers.SeriesMarkers;
 public class graphs {
 
     public static void main(String... args) throws IOException {
+
+        Instant thirtyDaysAgo = LocalDate.now().minusDays(30).atStartOfDay().toInstant(ZoneOffset.UTC);
 
         CsvMapper csvMapper = new CsvMapper();
         CsvSchema schema = CsvSchema.emptySchema().withHeader();
@@ -135,6 +143,10 @@ public class graphs {
         }
 
         BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_SDU_Acute_Hospital_Time_Series_Summary.png",
+                BitmapEncoder.BitmapFormat.PNG);
+
+        chart.getStyler().setXAxisMin(thirtyDaysAgo.toEpochMilli()*1.0);
+        BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_SDU_Acute_Hospital_Time_Series_Last30.png",
                 BitmapEncoder.BitmapFormat.PNG);
 
 
@@ -256,6 +268,12 @@ public class graphs {
         BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_NOCA_ICUBIS_Historic_Time_Series.png",
                 BitmapEncoder.BitmapFormat.PNG);
 
+        chart.getStyler().setXAxisMin(thirtyDaysAgo.toEpochMilli() * 1.0);
+
+        BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_NOCA_ICUBIS_Historic_Time_Series_Last30.png",
+                BitmapEncoder.BitmapFormat.PNG);
+
+
         chart = new XYChartBuilder()
                 .width(1200)
                 .height(675)
@@ -355,6 +373,12 @@ public class graphs {
         BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_Laboratory_Testing_Time_Series.png",
                 BitmapEncoder.BitmapFormat.PNG);
 
+        chart.getStyler().setXAxisMin(thirtyDaysAgo.toEpochMilli() * 1.0);
+
+        BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_Laboratory_Testing_Time_Series_Last30.png",
+                BitmapEncoder.BitmapFormat.PNG);
+
+
         chart = new XYChartBuilder()
                 .width(1200)
                 .height(675)
@@ -379,6 +403,11 @@ public class graphs {
                     .setMarker(SeriesMarkers.NONE);
         }
         BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_Laboratory_Testing_Percent_Positive.png",
+                BitmapEncoder.BitmapFormat.PNG);
+
+        chart.getStyler().setXAxisMin(thirtyDaysAgo.toEpochMilli() * 1.0);
+
+        BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_Laboratory_Testing_Percent_Positive_Last30.png",
                 BitmapEncoder.BitmapFormat.PNG);
 
         try (ImageOutputStream output = new FileImageOutputStream(new File("./graphs/COVID-19_Labs_Hospitalized_ICU.gif"))) {
