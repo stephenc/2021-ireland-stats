@@ -72,7 +72,7 @@ public class graphs {
                 .<Stats>readValues(
                         Paths.get("data/COVID-19_HPSC_Detailed_Statistics_Profile.csv").toFile()).readAll();
 
-        labTests.sort(Comparator.comparing(r -> r.timestamp));
+        stats.sort(Comparator.comparing(r -> r.timestamp));
 
         new File("./graphs").mkdirs();
 
