@@ -20,13 +20,10 @@ import java.time.OffsetDateTime;
 import java.time.Period;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -152,7 +149,7 @@ public class graphs {
         BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_SDU_Acute_Hospital_Time_Series_Summary.png",
                 BitmapEncoder.BitmapFormat.PNG);
 
-        chart.getStyler().setXAxisMin(thirtyDaysAgo.toEpochMilli()*1.0);
+        chart.getStyler().setXAxisMin(thirtyDaysAgo.toEpochMilli() * 1.0);
         BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_SDU_Acute_Hospital_Time_Series_Last30.png",
                 BitmapEncoder.BitmapFormat.PNG);
 
@@ -174,13 +171,13 @@ public class graphs {
             List<Number> values1 = new ArrayList<>(acuteHospitals.size());
             List<Number> values2 = new ArrayList<>(acuteHospitals.size());
             List<Number> values3 = new ArrayList<>(acuteHospitals.size());
-            OffsetDateTime cutOff = OffsetDateTime.now().minus(Period.of(0,0,28));
+            OffsetDateTime cutOff = OffsetDateTime.now().minus(Period.of(0, 0, 28));
             String threshold = cutOff.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
             acuteHospitals.stream().filter(r -> r.timestamp.compareTo(threshold) > 0).forEach(r -> {
                 times.add(parseTimestamp(r.timestamp));
                 values1.add(r.admissionsCovidPositive);
                 if (r.admissionsCovidPositive != null && r.newCovidCasesCovid != null && r.newCovidCasesCovid > 0) {
-                    values2.add(r.newCovidCasesCovid-r.admissionsCovidPositive);
+                    values2.add(r.newCovidCasesCovid - r.admissionsCovidPositive);
                 } else {
                     values2.add(null);
                 }
@@ -340,10 +337,12 @@ public class graphs {
                 while (i2 < icuHospitals.size() && icuHospitals.get(i2).timestamp.compareTo(v1.timestamp) < 0) {
                     i2++;
                 }
-                if (i2 >= icuHospitals.size()) break;
+                if (i2 >= icuHospitals.size()) {
+                    break;
+                }
                 ICUHospital v2 = icuHospitals.get(i2);
                 times.add(parseTimestamp(v1.timestamp));
-                values.add(v2.currentConfirmedCovidPositive * 100.0/ v1.currentConfirmedCovidPositive);
+                values.add(v2.currentConfirmedCovidPositive * 100.0 / v1.currentConfirmedCovidPositive);
                 i1++;
             }
             chart.addSeries("ICU", times, values)
@@ -370,7 +369,7 @@ public class graphs {
             LabTests[] previous = new LabTests[1];
             labTests.forEach(r -> {
                 times.add(parseTimestamp(r.timestamp));
-                values.add(r.totalPositives - (previous[0]==null?0: previous[0].totalPositives));
+                values.add(r.totalPositives - (previous[0] == null ? 0 : previous[0].totalPositives));
                 previous[0] = r;
             });
             chart.addSeries("Labs", times, values)
@@ -402,7 +401,8 @@ public class graphs {
             LabTests[] previous = new LabTests[1];
             labTests.forEach(r -> {
                 times.add(parseTimestamp(r.timestamp));
-                values.add((r.totalPositives - (previous[0]==null?0: previous[0].totalPositives)) * 100.0 / (r.totalLabsTotal - (previous[0]==null ? 0 : previous[0].totalLabsTotal)));
+                values.add((r.totalPositives - (previous[0] == null ? 0 : previous[0].totalPositives)) * 100.0 / (
+                        r.totalLabsTotal - (previous[0] == null ? 0 : previous[0].totalLabsTotal)));
                 previous[0] = r;
             });
             chart.addSeries("Labs", times, values)
@@ -417,7 +417,8 @@ public class graphs {
         BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_Laboratory_Testing_Percent_Positive_Last30.png",
                 BitmapEncoder.BitmapFormat.PNG);
 
-        try (ImageOutputStream output = new FileImageOutputStream(new File("./graphs/COVID-19_Labs_Hospitalized_ICU.gif"))) {
+        try (ImageOutputStream output = new FileImageOutputStream(
+                new File("./graphs/COVID-19_Labs_Hospitalized_ICU.gif"))) {
             GifSequenceWriter writer = null;
             try {
                 for (double sigma = 0.0; sigma <= 20.0; sigma += 0.5) {
@@ -536,7 +537,7 @@ public class graphs {
                         writer = new GifSequenceWriter(output, image.getType(), 500, true);
                     }
                     writer.writeToSequence(image);
-                    if (Math.abs(sigma-3) < 0.01) {
+                    if (Math.abs(sigma - 3) < 0.01) {
                         BitmapEncoder.saveBitmap(chart,
                                 String.format("./graphs/COVID-19_Labs_Hospitalized_ICU-%04.1f.png", sigma),
                                 BitmapEncoder.BitmapFormat.PNG);
@@ -605,7 +606,7 @@ public class graphs {
                         v = v + weights[j] * y.get(i - j).doubleValue();
                     }
                 }
-                result.add(i, v/s);
+                result.add(i, v / s);
             }
         }
         return result;
