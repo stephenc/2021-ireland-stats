@@ -9,6 +9,7 @@
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
+import java.awt.BasicStroke;
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.io.File;
@@ -359,10 +360,31 @@ public class graphs {
                 .theme(Styler.ChartTheme.Matlab)
                 .xAxisTitle("Date")
                 .yAxisTitle("Number of PCR Positive samples tested")
-                .title("Laboratory PCR Tests")
+                .title("Laboratory PCR Tests and Antigen Tests")
                 .build();
         chart.getStyler().setDatePattern("dd-MMM-yyyy");
 
+        {
+            List<Date> times = new ArrayList<>(labTests.size());
+            List<Number> values = new ArrayList<>(labTests.size());
+            LabTests[] previous = new LabTests[1];
+            labTests.forEach(r -> {
+                Date timestamp = parseTimestamp(r.timestamp);
+                times.add(timestamp);
+                values.add(r.totalPositives - (previous[0] == null ? 0 : previous[0].totalPositives) + antigens.stream()
+                        .filter(x -> parseTimestamp(x.timestamp).toInstant()
+                                .atOffset(ZoneOffset.UTC).toLocalDate()
+                                .equals(timestamp.toInstant().atOffset(ZoneOffset.UTC)
+                                        .toLocalDate()))
+                        .map(x -> x.positives)
+                        .findAny()
+                        .orElse(0L));
+                previous[0] = r;
+            });
+            chart.addSeries("Total", times, values)
+                    .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+                    .setMarker(SeriesMarkers.NONE);
+        }
         {
             List<Date> times = new ArrayList<>(labTests.size());
             List<Number> values = new ArrayList<>(labTests.size());
@@ -372,9 +394,22 @@ public class graphs {
                 values.add(r.totalPositives - (previous[0] == null ? 0 : previous[0].totalPositives));
                 previous[0] = r;
             });
-            chart.addSeries("Labs", times, values)
+            chart.addSeries("PCR Labs", times, values)
                     .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
-                    .setMarker(SeriesMarkers.NONE);
+                    .setMarker(SeriesMarkers.NONE).setLineStyle(
+                            new BasicStroke(2F, 0, 1, 10.0F, new float[] {5.0F}, 0.0F));
+        }
+        {
+            List<Date> times = new ArrayList<>(antigens.size());
+            List<Number> values = new ArrayList<>(antigens.size());
+            antigens.forEach(r -> {
+                times.add(parseTimestamp(r.timestamp));
+                values.add(r.positives);
+            });
+            chart.addSeries("Antigen", times, values)
+                    .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+                    .setMarker(SeriesMarkers.NONE).setLineStyle(
+                            new BasicStroke(2F, 0, 1, 10.0F, new float[] {5.0F}, 0.0F));
         }
         BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_Laboratory_Testing_Time_Series.png",
                 BitmapEncoder.BitmapFormat.PNG);
