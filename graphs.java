@@ -82,6 +82,13 @@ public class graphs {
 
         stats.sort(Comparator.comparing(r -> r.timestamp));
 
+        List<Antigen> antigens = csvMapper.readerFor(Antigen.class)
+                .with(schema)
+                .<Antigen>readValues(
+                        Paths.get("data/COVID-19_Antigen.csv").toFile()).readAll();
+
+        antigens.sort(Comparator.comparing(r -> r.timestamp));
+
         new File("./graphs").mkdirs();
 
         XYChart chart = new XYChartBuilder()
@@ -634,6 +641,13 @@ public class graphs {
         public Long dischargesCovidPositive;
         @JsonProperty("adcconf")
         public Long admissionsCovidPositive;
+    }
+
+    public static class Antigen {
+        @JsonProperty("DateOfData")
+        public String timestamp;
+        @JsonProperty("RegisteredPositiveAntigenFigure")
+        public Long positives;
     }
 
     public static class LabTests {
