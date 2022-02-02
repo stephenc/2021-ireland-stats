@@ -47,6 +47,13 @@ public class summary {
 
         stats.sort(Comparator.comparing(r -> r.timestamp));
 
+        List<Antigen> antigens = csvMapper.readerFor(Antigen.class)
+                .with(schema)
+                .<Antigen>readValues(
+                        Paths.get("data/COVID-19_Antigen.csv").toFile()).readAll();
+
+        antigens.sort(Comparator.comparing(r -> r.timestamp));
+
         LocalDate summaryDate;
         if (args.length == 0) {
             summaryDate = LocalDate.now();
@@ -110,6 +117,29 @@ public class summary {
             }
             System.out.println();
 
+        }
+
+        {
+            Antigen current = antigens.stream()
+                    .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate))
+                    .findFirst().orElse(null);
+            Antigen previous = antigens.stream()
+                    .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate.minusDays(1)))
+                    .findFirst().orElse(null);
+
+            boolean haveToday = current != null && parseTimestamp(current.timestamp).toLocalDate().equals(summaryDate);
+            boolean haveYesterday = previous != null &&
+                    parseTimestamp(previous.timestamp).toLocalDate().equals(summaryDate.minusDays(1));
+            if (haveToday && haveYesterday) {
+                System.out.printf("\u2022 Antigen +ve %s %d%n",
+                        compareStr(previous.positives, current.positives),
+                        current.positives);
+                System.out.println();
+            } else if (haveToday) {
+                System.out.printf("\u2022 Antigen +ve %d%n",
+                        current.positives);
+                System.out.println();
+            }
         }
 
         {
@@ -257,6 +287,13 @@ public class summary {
         public Long dischargesCovidPositive;
         @JsonProperty("adcconf")
         public Long admissionsCovidPositive;
+    }
+
+    public static class Antigen {
+        @JsonProperty("DateOfData")
+        public String timestamp;
+        @JsonProperty("RegisteredPositiveAntigenFigure")
+        public Long positives;
     }
 
     public static class LabTests {
