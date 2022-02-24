@@ -404,6 +404,10 @@ public class summary {
         public Long aged75to84;
         @JsonProperty("Aged85up")
         public Long aged85up;
+        @JsonProperty("DeathsCumulative_DOD")
+        public Long deathsCumulativeDOD;
+        @JsonProperty("DeathsToday_DOD")
+        public Long deathsTodayDOD;
     }
 
 }
