@@ -47,6 +47,9 @@ curl_etag \
 curl_etag \
   data/COVID-19_HPSC_HIU_Timeseries_Local_Electoral_Area_Mapped \
   https://covid-19.geohive.ie/datasets/7a10c7d87a634e71a1655e7451522b53_0.csv
+curl_etag \
+  data/COVID-Info-Hub-Source-Data \
+  'https://opendata.arcgis.com/api/v3/datasets/67b8175576fe44e9ab193c4a5dc2ff9a_0/downloads/data?format=csv&spatialRefId=4326'
 
 # This was the only source of antigen data I could find and had to go to the
 # backing arcgis service behind geohive to get it
