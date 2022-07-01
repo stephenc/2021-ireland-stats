@@ -798,6 +798,8 @@ public class graphs {
         public Long deathsCumulativeDOD;
         @JsonProperty("DeathsToday_DOD")
         public Long deathsTodayDOD;
+        @JsonProperty("SevenDayAvg_Cases")
+        public Long severDayAvgCases;
     }
 
     public static class GifSequenceWriter {

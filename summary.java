@@ -408,6 +408,8 @@ public class summary {
         public Long deathsCumulativeDOD;
         @JsonProperty("DeathsToday_DOD")
         public Long deathsTodayDOD;
+        @JsonProperty("SevenDayAvg_Cases")
+        public Long severDayAvgCases;
     }
 
 }
