@@ -48,6 +48,12 @@ curl_etag \
   data/COVID-19_HPSC_HIU_Timeseries_Local_Electoral_Area_Mapped \
   https://covid-19.geohive.ie/datasets/7a10c7d87a634e71a1655e7451522b53_0.csv
 curl_etag \
+  data/COVID-19_HSE_Weekly_Booster_Vaccination_Figures.csv \
+  https://covid-19.geohive.ie/datasets/2a4814b66d0d459cbb80dea30f61fbfe_0.csv
+curl_etag \
+  data/COVID-19_HSE_Daily_Booster_Vaccination_Figures.csv \
+  https://covid-19.geohive.ie/datasets/e6a25866439249e1a03629dd823934c2_0.csv
+curl_etag \
   data/COVID-Info-Hub-Source-Data \
   'https://opendata.arcgis.com/api/v3/datasets/67b8175576fe44e9ab193c4a5dc2ff9a_0/downloads/data?format=csv&spatialRefId=4326'
 
