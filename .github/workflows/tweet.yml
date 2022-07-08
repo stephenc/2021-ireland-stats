@@ -16,6 +16,12 @@
 name: Tweet
 on:
   workflow_dispatch:
+    inputs:
+      date_offset:
+        description: "The number of days ago to generate the summary for"
+        required: true
+        default: "-0"
+        type: string
 jobs:
   build:
     name: Tweet
@@ -39,6 +45,6 @@ jobs:
       - run: go install github.com/mattn/twty@latest
       - run: mkdir -p ~/.config/twty && echo "${{ secrets.TWTY_SETTINGS }}" | base64 --decode > ~/.config/twty/settings.json && chmod 0600 ~/.config/twty/settings.json
       - name: Tweets
-        run: ./summary.java --tweet
+        run: ./summary.java --tweet ${{ inputs.date_offset }}
         env:
           JBANG_REPO: /home/runner/.jbang/repository
