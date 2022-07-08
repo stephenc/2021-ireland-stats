@@ -33,6 +33,9 @@ jobs:
           java-version: 11.0.11.hs-adpt
           jdkFile: ${{ steps.sdkman.outputs.file }}
       - run: curl -Ls https://sh.jbang.dev | bash -s - app setup && echo "/home/runner/.jbang/bin" >> $GITHUB_PATH && rm -f hook_post_*.sh
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '>=1.18.0'
       - run: go install github.com/mattn/twty@latest
       - run: mkdir -p ~/.config/twty && echo "${{ secrets.TWTY_SETTINGS }}" | base64 --decode > ~/.config/twty/settings.json && chmod 0600 ~/.config/twty/settings.json
       - name: Tweets
