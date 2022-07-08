@@ -158,6 +158,10 @@ public class summary {
                     message.append(String.format("\u2022 Positivity %.1f%%%n",
                             currentPositivity));
                 } else {
+                    if (tweeting) {
+                        System.err.println("No PCR data available, aborting tweets");
+                        System.exit(1);
+                    }
                     message.append("\u2022 Data not currently available" + "\n");
                 }
                 message.append('\n');
