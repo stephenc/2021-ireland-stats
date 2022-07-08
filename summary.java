@@ -8,16 +8,25 @@
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class summary {
 
-    public static void main(String... args) throws IOException {
+    public static void main(String... args) throws IOException, InterruptedException {
+
         CsvMapper csvMapper = new CsvMapper();
         CsvSchema schema = CsvSchema.emptySchema().withHeader();
         List<AcuteHospital> acuteHospitals = csvMapper.readerFor(AcuteHospital.class)
@@ -54,93 +63,200 @@ public class summary {
 
         antigens.sort(Comparator.comparing(r -> r.timestamp));
 
-        LocalDate summaryDate;
-        if (args.length == 0) {
-            summaryDate = LocalDate.now();
-        } else {
-            if (args[0].startsWith("-")) {
-                summaryDate = LocalDate.now().minusDays(Integer.parseInt(args[0].substring(1)));
-            } else {
-                summaryDate = LocalDate.parse(args[0]);
+        boolean tweeting = false;
+        LocalDate argDate = LocalDate.now();
+        for (String arg : args) {
+            switch (arg.toLowerCase(Locale.ENGLISH)) {
+                case "--tweet":
+                case "tweet":
+                    tweeting = true;
+                    break;
+                default:
+                    if (arg.startsWith("-")) {
+                        argDate = LocalDate.now().minusDays(Integer.parseInt(arg.substring(1)));
+                    } else {
+                        argDate = LocalDate.parse(arg);
+                    }
             }
         }
+        LocalDate summaryDate = argDate;
+        StringBuffer message = new StringBuffer();
         {
-            LabTests current =
-                    labTests.stream().filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate))
-                            .findFirst().orElse(null);
-            LabTests previous =
-                    labTests.stream()
-                            .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate.minusDays(1)))
-                            .findFirst().orElse(null);
-            LabTests ref = labTests.stream()
-                    .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate.minusDays(2)))
-                    .findFirst().orElse(null);
-
-            long currentPositives =
-                    current == null || previous == null ? 0 : current.totalPositives - previous.totalPositives;
-            long previousPositives = previous == null || ref == null ? 0 : previous.totalPositives - ref.totalPositives;
-            long currentTotalTests =
-                    current == null || previous == null ? 0 : current.totalLabsTotal - previous.totalLabsTotal;
-            long previousTotalTests =
-                    previous == null || ref == null ? 0 : previous.totalLabsTotal - ref.totalLabsTotal;
-            double currentPositivity = current == null ? 0 : currentPositives * 100.0 / currentTotalTests;
-            double previousPositivity = previous == null ? 0 : previousPositives * 100.0 / previousTotalTests;
-
-            System.out.println("Ireland \uD83C\uDDEE\uD83C\uDDEA  PCR lab tests " + summaryDate);
-            System.out.println();
-            boolean haveToday = current != null && parseTimestamp(current.timestamp).toLocalDate().equals(summaryDate);
-            boolean haveYesterday = previous != null &&
-                    parseTimestamp(previous.timestamp).toLocalDate().equals(summaryDate.minusDays(1));
-            boolean haveRef = ref != null &&
-                    parseTimestamp(ref.timestamp).toLocalDate().equals(summaryDate.minusDays(2));
-            if (haveToday && haveYesterday && haveRef) {
-                System.out.printf("\u2022 Positives %s %d%n",
-                        compareStr(previousPositives, currentPositives),
-                        currentPositives);
-                System.out.printf("\u2022 Tests %s %d%n",
-                        compareStr(previousTotalTests, currentTotalTests),
-                        currentTotalTests);
-                System.out.printf("\u2022 Positivity %s %.1f%%%n",
-                        compareStr(previousPositivity, currentPositivity),
-                        currentPositivity);
-            } else if (haveToday && haveYesterday) {
-                System.out.printf("\u2022 No comparisons, data for %s not currently available%n",
-                        summaryDate.minusDays(1));
-                System.out.printf("\u2022 Positives %d%n",
-                        currentPositives);
-                System.out.printf("\u2022 Tests %d%n",
-                        currentTotalTests);
-                System.out.printf("\u2022 Positivity %.1f%%%n",
-                        currentPositivity);
-            } else {
-                System.out.println("\u2022 Data not currently available");
+            Long pcrCount = null;
+            Long pcrPrevCount = null;
+            Double[] antigenRatio = new Double[1];
+            {
+                LabTests[] previous = new LabTests[1];
+                labTests.forEach(r -> {
+                    OffsetDateTime timestamp = parseTimestamp(r.timestamp);
+                    long pcrPositives = r.totalPositives - (previous[0] == null ? 0 : previous[0].totalPositives);
+                    antigens.stream()
+                            .filter(x -> parseTimestamp(x.timestamp).toInstant()
+                                    .atOffset(ZoneOffset.UTC).toLocalDate()
+                                    .equals(timestamp.toInstant().atOffset(ZoneOffset.UTC)
+                                            .toLocalDate()))
+                            .map(x -> x.positives)
+                            .findAny()
+                            .ifPresent(p -> {
+                                if (pcrPositives > 0) {
+                                    antigenRatio[0] = antigenRatio[0] == null
+                                            ? p / pcrPositives
+                                            : 0.9 * antigenRatio[0] + 0.1 * p / pcrPositives;
+                                }
+                            });
+                    previous[0] = r;
+                });
             }
-            System.out.println();
+            {
+                LabTests current =
+                        labTests.stream().filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate))
+                                .findFirst().orElse(null);
+                LabTests previous =
+                        labTests.stream()
+                                .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate.minusDays(1)))
+                                .findFirst().orElse(null);
+                LabTests ref = labTests.stream()
+                        .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate.minusDays(2)))
+                        .findFirst().orElse(null);
 
+                long currentPositives =
+                        current == null || previous == null ? 0 : current.totalPositives - previous.totalPositives;
+                long previousPositives =
+                        previous == null || ref == null ? 0 : previous.totalPositives - ref.totalPositives;
+                long currentTotalTests =
+                        current == null || previous == null ? 0 : current.totalLabsTotal - previous.totalLabsTotal;
+                long previousTotalTests =
+                        previous == null || ref == null ? 0 : previous.totalLabsTotal - ref.totalLabsTotal;
+                double currentPositivity = current == null ? 0 : currentPositives * 100.0 / currentTotalTests;
+                double previousPositivity = previous == null ? 0 : previousPositives * 100.0 / previousTotalTests;
+
+                message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  PCR lab tests " + summaryDate + "\n");
+                message.append('\n');
+                boolean haveToday =
+                        current != null && parseTimestamp(current.timestamp).toLocalDate().equals(summaryDate);
+                boolean haveYesterday = previous != null &&
+                        parseTimestamp(previous.timestamp).toLocalDate().equals(summaryDate.minusDays(1));
+                boolean haveRef = ref != null &&
+                        parseTimestamp(ref.timestamp).toLocalDate().equals(summaryDate.minusDays(2));
+                if (haveToday && haveYesterday && haveRef) {
+                    message.append(String.format("\u2022 Positives %s %d%n",
+                            compareStr(previousPositives, currentPositives),
+                            currentPositives));
+                    message.append(String.format("\u2022 Tests %s %d%n",
+                            compareStr(previousTotalTests, currentTotalTests),
+                            currentTotalTests));
+                    message.append(String.format("\u2022 Positivity %s %.1f%%%n",
+                            compareStr(previousPositivity, currentPositivity),
+                            currentPositivity));
+                } else if (haveToday && haveYesterday) {
+                    message.append(String.format("\u2022 No comparisons, data for %s not currently available%n",
+                            summaryDate.minusDays(1)));
+                    message.append(String.format("\u2022 Positives %d%n",
+                            currentPositives));
+                    message.append(String.format("\u2022 Tests %d%n",
+                            currentTotalTests));
+                    message.append(String.format("\u2022 Positivity %.1f%%%n",
+                            currentPositivity));
+                } else {
+                    message.append("\u2022 Data not currently available" + "\n");
+                }
+                message.append('\n');
+                pcrCount = current == null || previous == null ? null : currentPositives;
+                pcrPrevCount = previous == null || ref == null ? null : previous.totalPositives - ref.totalPositives;
+            }
+
+            Long antigenCount = null;
+            Long antigenPrevCount = null;
+            {
+                Antigen current = antigens.stream()
+                        .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate))
+                        .findFirst().orElse(null);
+                Antigen previous = antigens.stream()
+                        .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate.minusDays(1)))
+                        .findFirst().orElse(null);
+
+                boolean haveToday =
+                        current != null && parseTimestamp(current.timestamp).toLocalDate().equals(summaryDate);
+                boolean haveYesterday = previous != null &&
+                        parseTimestamp(previous.timestamp).toLocalDate().equals(summaryDate.minusDays(1));
+                if (haveToday && haveYesterday) {
+                    message.append(String.format("\u2022 Antigen +ve %s %d%n",
+                            compareStr(previous.positives, current.positives),
+                            current.positives));
+                    message.append('\n');
+                } else if (haveToday) {
+                    message.append(String.format("\u2022 Antigen +ve %d%n",
+                            current.positives));
+                    message.append('\n');
+                } else {
+                    message.append("\u2022 Antigen data not currently available" + "\n");
+                    message.append('\n');
+                }
+                antigenCount = haveToday ? current.positives : null;
+                antigenPrevCount = haveYesterday ? previous.positives : null;
+            }
+            Long prevTotal = pcrPrevCount != null
+                    ? (antigenPrevCount != null
+                    ? pcrPrevCount + antigenPrevCount
+                    : Math.round(pcrPrevCount / 2056616.0 * (2705249.0 + 2056616.0))) : null;
+            Long prevTotal2 = pcrPrevCount != null
+                    ? (antigenPrevCount != null
+                    ? pcrPrevCount + antigenPrevCount
+                    : Math.round(pcrPrevCount * (1 + antigenRatio[0]))) : null;
+            if (pcrCount != null) {
+                if (antigenCount == null) {
+                    long projectedTotal = Math.round(pcrCount / 2056616.0 * (2705249.0 + 2056616.0));
+                    if (Boolean.getBoolean("pop")) {
+                        if (prevTotal != null) {
+                            message.append(String.format("\u2022 PROJECTED total %s %d%n",
+                                    compareStr(prevTotal, projectedTotal),
+                                    projectedTotal));
+                        } else {
+                            message.append(String.format("\u2022 PROJECTED total %d%n", projectedTotal));
+                        }
+                        message.append('\n');
+                        message.append(
+                                "NOTE: Projection based on PCR positives extrapolated to whole population" + "\n");
+                    } else {
+                        long projectedTotal2 = Math.round(pcrCount * (1 + antigenRatio[0]));
+                        if (prevTotal2 != null) {
+                            message.append(String.format("\u2022 PROJECTED total %s %d%n",
+                                    compareStr(prevTotal2, projectedTotal2),
+                                    projectedTotal2));
+                        } else {
+                            message.append(String.format("\u2022 PROJECTED total %d%n", projectedTotal2));
+                        }
+                        message.append('\n');
+                        message.append(String.format(
+                                "NOTE: Projection based on recent historical ratio PCR:Antigen of 1:%.3f%n",
+                                antigenRatio[0]));
+                    }
+                } else {
+                    if (prevTotal != null) {
+                        message.append(String.format("\u2022 Total %s %d%n", compareStr(prevTotal,
+                                        pcrCount + antigenCount),
+                                pcrCount + antigenCount));
+                    } else {
+                        message.append(String.format("\u2022 Total %d%n", pcrCount + antigenCount));
+                    }
+                }
+            }
         }
 
-        {
-            Antigen current = antigens.stream()
-                    .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate))
-                    .findFirst().orElse(null);
-            Antigen previous = antigens.stream()
-                    .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate.minusDays(1)))
-                    .findFirst().orElse(null);
-
-            boolean haveToday = current != null && parseTimestamp(current.timestamp).toLocalDate().equals(summaryDate);
-            boolean haveYesterday = previous != null &&
-                    parseTimestamp(previous.timestamp).toLocalDate().equals(summaryDate.minusDays(1));
-            if (haveToday && haveYesterday) {
-                System.out.printf("\u2022 Antigen +ve %s %d%n",
-                        compareStr(previous.positives, current.positives),
-                        current.positives);
-                System.out.println();
-            } else if (haveToday) {
-                System.out.printf("\u2022 Antigen +ve %d%n",
-                        current.positives);
-                System.out.println();
-            }
+        String lastTweet = null;
+        if (tweeting) {
+            lastTweet = sendTweet(
+                    message,
+                    lastTweet,
+                    Paths.get("graphs/COVID-19_Laboratory_Testing_Percent_Positive.png"),
+                    Paths.get("graphs/COVID-19_Laboratory_Testing_Percent_Positive_Last30.png"),
+                    Paths.get("graphs/COVID-19_Laboratory_Testing_Time_Series.png"),
+                    Paths.get("graphs/COVID-19_Laboratory_Testing_Time_Series_Last30.png")
+            );
         }
+        message.append('\n');
+        System.out.println(message);
+        message.setLength(0);
 
         {
             AcuteHospital current = acuteHospitals.stream()
@@ -150,44 +266,56 @@ public class summary {
                     .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate.minusDays(1)))
                     .findFirst().orElse(null);
 
-            System.out.println("Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital general " + summaryDate);
-            System.out.println();
+            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital general " + summaryDate + "\n");
+            message.append('\n');
             boolean haveToday = current != null && parseTimestamp(current.timestamp).toLocalDate().equals(summaryDate);
             boolean haveYesterday = previous != null &&
                     parseTimestamp(previous.timestamp).toLocalDate().equals(summaryDate.minusDays(1));
             if (haveToday && haveYesterday) {
-                System.out.printf("\u2022 Occupancy with +ve %s %d%n",
+                message.append(String.format("\u2022 Occupancy with +ve %s %d%n",
                         compareStr(previous.currentConfirmedCovidPositive, current.currentConfirmedCovidPositive),
-                        current.currentConfirmedCovidPositive);
+                        current.currentConfirmedCovidPositive));
                 if (previous.admissionsCovidPositive != null && current.admissionsCovidPositive != null) {
-                    System.out.printf("\u2022 Admission with +ve %s %d%n",
+                    message.append(String.format("\u2022 Admission with +ve %s %d%n",
                             compareStr(previous.admissionsCovidPositive, current.admissionsCovidPositive),
-                            current.admissionsCovidPositive);
-                    System.out.printf("\u2022 Post admission +ve %s %d%n",
+                            current.admissionsCovidPositive));
+                    message.append(String.format("\u2022 Post admission +ve %s %d%n",
                             compareStr(
                                     previous.newCovidCasesCovid - previous.admissionsCovidPositive,
                                     current.newCovidCasesCovid - current.admissionsCovidPositive),
-                            current.newCovidCasesCovid - current.admissionsCovidPositive);
+                            current.newCovidCasesCovid - current.admissionsCovidPositive));
                 } else if (current.admissionsCovidPositive != null) {
-                    System.out.printf("\u2022 Admission with +ve %d%n",
-                            current.admissionsCovidPositive);
-                    System.out.printf("\u2022 Post admission +ve %d%n",
-                            current.newCovidCasesCovid - current.admissionsCovidPositive);
+                    message.append(String.format("\u2022 Admission with +ve %d%n",
+                            current.admissionsCovidPositive));
+                    message.append(String.format("\u2022 Post admission +ve %d%n",
+                            current.newCovidCasesCovid - current.admissionsCovidPositive));
                 }
             } else if (haveToday) {
-                System.out.printf("\u2022 No comparisons, data for %s not currently available%n",
-                        summaryDate.minusDays(1));
-                System.out.printf("\u2022 Occupancy with +ve %d%n",
-                        current.currentConfirmedCovidPositive);
-                System.out.printf("\u2022 Admission with +ve %d%n",
-                        current.admissionsCovidPositive);
-                System.out.printf("\u2022 Post admission +ve %d%n",
-                        current.newCovidCasesCovid - current.admissionsCovidPositive);
+                message.append(String.format("\u2022 No comparisons, data for %s not currently available%n",
+                        summaryDate.minusDays(1)));
+                message.append(String.format("\u2022 Occupancy with +ve %d%n",
+                        current.currentConfirmedCovidPositive));
+                message.append(String.format("\u2022 Admission with +ve %d%n",
+                        current.admissionsCovidPositive));
+                message.append(String.format("\u2022 Post admission +ve %d%n",
+                        current.newCovidCasesCovid - current.admissionsCovidPositive));
             } else {
-                System.out.println("\u2022 Data not currently available");
+                message.append("\u2022 Data not currently available" + "\n");
             }
-            System.out.println();
         }
+
+        if (tweeting) {
+            lastTweet = sendTweet(
+                    message,
+                    lastTweet,
+                    Paths.get("graphs/COVID-19_SDU_Acute_Hospital_Time_Series_Last30.png"),
+                    Paths.get("graphs/COVID-19_SDU_Acute_Hospital_Time_Series_New_cases_breakdown.png"),
+                    Paths.get("graphs/COVID-19_SDU_Acute_Hospital_Time_Series_Summary.png")
+            );
+        }
+        message.append('\n');
+        System.out.println(message);
+        message.setLength(0);
 
         {
             ICUHospital current = icuHospitals.stream()
@@ -197,34 +325,205 @@ public class summary {
                     .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate.minusDays(1)))
                     .findFirst().orElse(null);
 
-            System.out.println("Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital ICU " + summaryDate);
-            System.out.println();
+            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital ICU " + summaryDate + "\n");
+            message.append('\n');
             boolean haveToday = current != null && parseTimestamp(current.timestamp).toLocalDate().equals(summaryDate);
             boolean haveYesterday = previous != null && parseTimestamp(previous.timestamp).toLocalDate()
                     .equals(summaryDate.minusDays(1));
             if (haveToday && haveYesterday) {
-                System.out.printf("\u2022 Occupancy with +ve %s %d%n",
+                message.append(String.format("\u2022 Occupancy with +ve %s %d%n",
                         compareStr(previous.currentConfirmedCovidPositive, current.currentConfirmedCovidPositive),
                         current.currentConfirmedCovidPositive
-                );
-                System.out.printf("\u2022 Admissions with +ve %s %d%n",
+                ));
+                message.append(String.format("\u2022 Admissions with +ve %s %d%n",
                         compareStr(previous.admissionsCovidPositive, current.admissionsCovidPositive),
                         current.admissionsCovidPositive
-                );
+                ));
             } else if (haveToday) {
-                System.out.printf("\u2022 No comparisons, data for %s not currently available%n",
-                        summaryDate.minusDays(1));
-                System.out.printf("\u2022 Occupancy with +ve %d%n",
+                message.append(String.format("\u2022 No comparisons, data for %s not currently available%n",
+                        summaryDate.minusDays(1)));
+                message.append(String.format("\u2022 Occupancy with +ve %d%n",
                         current.currentConfirmedCovidPositive
-                );
-                System.out.printf("\u2022 Admissions with +ve %d%n",
+                ));
+                message.append(String.format("\u2022 Admissions with +ve %d%n",
                         current.admissionsCovidPositive
-                );
+                ));
             } else {
-                System.out.println("\u2022 Data not currently available");
+                message.append("\u2022 Data not currently available" + "\n");
             }
-            System.out.println();
+            if (tweeting) {
+                lastTweet = sendTweet(
+                        message,
+                        lastTweet,
+                        Paths.get("graphs/COVID-19_NOCA_ICUBIS_Historic_Time_Series.png"),
+                        Paths.get("graphs/COVID-19_NOCA_ICUBIS_Historic_Time_Series_Last30.png")
+                );
+            }
+            message.append('\n');
+            System.out.println(message);
+            message.setLength(0);
+
+            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  % PCR Positive Analysis " + summaryDate + "\n");
+            if (tweeting) {
+                lastTweet = sendTweet(
+                        message,
+                        lastTweet,
+                        Paths.get("graphs/COVID-19_Labs_Vs_Last_Year.gif")
+                );
+            }
+            message.append('\n');
+            System.out.println(message);
+            message.setLength(0);
+
+            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  Total # of positives Analysis " + summaryDate + "\n");
+            if (tweeting) {
+                message.append("\n(Automated tweet any analysis will follow later)");
+                lastTweet = sendTweet(
+                        message,
+                        lastTweet,
+                        Paths.get("graphs/COVID-19_Positives_Vs_Last_Year.gif")
+                );
+            }
+            message.append('\n');
+            System.out.println(message);
+            message.setLength(0);
+
+            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  All data time-shift graph " + summaryDate + "\n");
+            if (tweeting) {
+                message.append("\n(Automated tweet any analysis will follow later)");
+                lastTweet = sendTweet(
+                        message,
+                        lastTweet,
+                        Paths.get("graphs/COVID-19_Labs_Hospitalized_ICU.gif")
+                );
+            }
+            message.append('\n');
+            System.out.println(message);
+            message.setLength(0);
+
+            message.append("All data sourced from https://covid-19.geohive.ie/search" + "\n");
+            message.append(
+                    "I am maintaining an archive of the geohive data tracked every hour on https://github"
+                            + ".com/stephenc/2021-ireland-stats/tree/main/data"
+                            + "\n");
+            message.append('\n');
+            message.append(
+                    "My full set of graphs is available from https://github"
+                            + ".com/stephenc/2021-ireland-stats/tree/main/graphs (updated daily at 16:15 UTC and "
+                            + "manually if I see the data updated early)"
+                            + "\n");
+            if (tweeting) {
+                lastTweet = sendTweet(
+                        message,
+                        lastTweet
+                );
+            }
+            message.append('\n');
+            System.out.println(message);
+
+            message.setLength(0);
+            String previousThread = previousThread(summaryDate);
+            if (previousThread != null) {
+                String dayOfWeek = summaryDate.minusDays(1).getDayOfWeek().toString();
+                message.append(dayOfWeek.charAt(0));
+                message.append(dayOfWeek.substring(1).toLowerCase(Locale.ENGLISH));
+                message.append("'s thread: https://twitter.com/connolly_s/status/");
+                message.append(previousThread);
+                System.out.println(message);
+                if (tweeting) {
+                    sendTweet(
+                            message,
+                            lastTweet
+                    );
+                }
+            }
         }
+    }
+
+    private static String previousThread(LocalDate summaryDate) throws IOException, InterruptedException {
+        List<String> args = new ArrayList<>();
+        args.add("twty");
+        args.add("-v");
+        args.add("-s");
+        args.add(String.format("from:connolly_s -is:reply Ireland \"PCR lab tests %s\"", summaryDate.minusDays(1)));
+        Process process = new ProcessBuilder(args)
+                .redirectErrorStream(true)
+                .start();
+        String threadId = null;
+        int state = 0;
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream()))) {
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                switch (state) {
+                    case 0:
+                        if (line.startsWith("connolly_s:")) {
+                            state = 1;
+                        }
+                        break;
+                    case 1:
+                        int i = line.indexOf("PCR lab tests");
+                        if (line.startsWith("  Ireland") && i > 0 && i < 20) {
+                            state = 2;
+                        } else {
+                            state = 0;
+                        }
+                        break;
+                    case 2:
+                        if (line.matches("^\\s{2}\\d+")) {
+                            threadId = line.substring(2);
+                        }
+                        state = 0;
+                        break;
+                    default:
+                        state = 0;
+                        break;
+                }
+            }
+        }
+        int retVal = process.waitFor();
+        if (retVal != 0) {
+            throw new RuntimeException("forked process exited with " + retVal);
+        }
+        return threadId;
+    }
+
+    private static String sendTweet(StringBuffer message, String inReplyTo, Path... medias)
+            throws IOException, InterruptedException {
+        List<String> args = new ArrayList<>();
+        args.add("twty");
+        if (inReplyTo != null) {
+            args.add("-i");
+            args.add(inReplyTo);
+        }
+        for (Path media : medias) {
+            args.add("-m");
+            args.add(media.toString());
+        }
+        args.add(message.toString());
+        Process process = new ProcessBuilder(args)
+                .redirectErrorStream(true)
+                .start();
+        Pattern tweeted = Pattern.compile("^tweeted:\\s+(\\d+)\\s*$");
+        String tweetId = null;
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream()))) {
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.err.println(line);
+                Matcher m = tweeted.matcher(line);
+                if (m.matches()) {
+                    tweetId = m.group(1);
+                }
+            }
+        }
+        int retVal = process.waitFor();
+        if (retVal != 0) {
+            throw new RuntimeException("forked process exited with " + retVal);
+        }
+        return tweetId;
     }
 
     private static OffsetDateTime parseTimestamp(String v1) {
