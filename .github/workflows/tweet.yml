@@ -44,6 +44,8 @@ jobs:
           go-version: '>=1.18.0'
       - run: go install github.com/mattn/twty@latest
       - run: mkdir -p ~/.config/twty && echo "${{ secrets.TWTY_SETTINGS }}" | base64 --decode > ~/.config/twty/settings.json && chmod 0600 ~/.config/twty/settings.json
+      - name: Update Graphs
+        run: ./graphs.java ${{ inputs.date_offset }}
       - name: Tweets
         run: ./summary.java --tweet ${{ inputs.date_offset }}
         env:

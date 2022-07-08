@@ -29,6 +29,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.imageio.IIOImage;
@@ -74,9 +75,11 @@ public class graphs {
                 System.err.println("Missing Antigen Data will be substituted based on the PCR normalized for all pop");
             }
         }
-        Instant thirtyDaysAgo = LocalDate.now().minusDays(30).atStartOfDay().toInstant(ZoneOffset.UTC);
-        Instant sixtyDaysAgo = LocalDate.now().minusDays(60).atStartOfDay().toInstant(ZoneOffset.UTC);
-        Instant ninetyDaysAgo = LocalDate.now().minusDays(90).atStartOfDay().toInstant(ZoneOffset.UTC);
+        LocalDate graphDate = LocalDate.now().plusDays(Stream.of(args).filter(x -> x.matches("^-\\d+$")).findAny().map(Integer::valueOf).orElse(0));
+        Instant cutOffDate = graphDate.atStartOfDay().plusDays(1).toInstant(ZoneOffset.UTC);
+        Instant thirtyDaysAgo = graphDate.minusDays(30).atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant sixtyDaysAgo = graphDate.minusDays(60).atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant ninetyDaysAgo = graphDate.minusDays(90).atStartOfDay().toInstant(ZoneOffset.UTC);
 
         CsvMapper csvMapper = new CsvMapper();
         CsvSchema schema = CsvSchema.emptySchema().withHeader();
@@ -85,6 +88,8 @@ public class graphs {
                 .<AcuteHospital>readValues(
                         Paths.get("data/COVID-19_SDU_Acute_Hospital_Time_Series_Summary.csv").toFile()).readAll();
         acuteHospitals.sort(Comparator.comparing(r -> r.timestamp));
+        acuteHospitals.removeIf(r -> parseTimestamp(r.timestamp).toInstant()
+                .isAfter(cutOffDate));
 
         List<ICUHospital> icuHospitals = csvMapper.readerFor(ICUHospital.class)
                 .with(schema)
@@ -92,6 +97,8 @@ public class graphs {
                         Paths.get("data/COVID-19_NOCA_ICUBIS_Historic_Time_Series.csv").toFile()).readAll();
 
         icuHospitals.sort(Comparator.comparing(r -> r.timestamp));
+        icuHospitals.removeIf(r -> parseTimestamp(r.timestamp).toInstant()
+                .isAfter(cutOffDate));
 
         List<LabTests> labTests = csvMapper.readerFor(LabTests.class)
                 .with(schema)
@@ -99,6 +106,8 @@ public class graphs {
                         Paths.get("data/COVID-19_Laboratory_Testing_Time_Series.csv").toFile()).readAll();
 
         labTests.sort(Comparator.comparing(r -> r.timestamp));
+        labTests.removeIf(r -> parseTimestamp(r.timestamp).toInstant()
+                .isAfter(cutOffDate));
 
         List<Stats> stats = csvMapper.readerFor(Stats.class)
                 .with(schema)
@@ -106,6 +115,8 @@ public class graphs {
                         Paths.get("data/COVID-19_HPSC_Detailed_Statistics_Profile.csv").toFile()).readAll();
 
         stats.sort(Comparator.comparing(r -> r.timestamp));
+        stats.removeIf(r -> parseTimestamp(r.timestamp).toInstant()
+                .isAfter(cutOffDate));
 
         List<Antigen> antigens = csvMapper.readerFor(Antigen.class)
                 .with(schema)
@@ -113,6 +124,8 @@ public class graphs {
                         Paths.get("data/COVID-19_Antigen.csv").toFile()).readAll();
 
         antigens.sort(Comparator.comparing(r -> r.timestamp));
+        antigens.removeIf(r -> parseTimestamp(r.timestamp).toInstant()
+                .isAfter(cutOffDate));
 
         List<WeeklyVax> weeklyVax = csvMapper.readerFor(WeeklyVax.class)
                 .with(schema)
@@ -120,6 +133,8 @@ public class graphs {
                         Paths.get("data/COVID-19_HSE_Weekly_Vaccination_Figures.csv").toFile()).readAll();
 
         weeklyVax.sort(Comparator.comparing(r -> r.week));
+        weeklyVax.removeIf(r -> parseWeekNum(r.week).toInstant()
+                .isAfter(cutOffDate));
 
         new File("./graphs").mkdirs();
 
