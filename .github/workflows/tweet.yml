@@ -39,6 +39,6 @@ jobs:
       - run: go install github.com/mattn/twty@latest
       - run: mkdir -p ~/.config/twty && echo "${{ secrets.TWTY_SETTINGS }}" | base64 --decode > ~/.config/twty/settings.json && chmod 0600 ~/.config/twty/settings.json
       - name: Tweets
-        run: ./summary.java
+        run: ./summary.java --tweet
         env:
           JBANG_REPO: /home/runner/.jbang/repository
