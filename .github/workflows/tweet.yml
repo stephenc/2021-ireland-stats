@@ -1,0 +1,41 @@
+#   Copyright 2021 Stephen Connolly
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+#
+
+name: Tweet
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    name: Tweet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - uses: sdkman/sdkman-action@master
+        id: sdkman
+        with:
+          candidate: java
+          version: 11.0.11.hs-adpt
+      - uses: actions/setup-java@v1
+        id: setup-java
+        with:
+          java-version: 11.0.11.hs-adpt
+          jdkFile: ${{ steps.sdkman.outputs.file }}
+      - run: curl -Ls https://sh.jbang.dev | bash -s - app setup && echo "/home/runner/.jbang/bin" >> $GITHUB_PATH && rm -f hook_post_*.sh
+      - run: go install github.com/mattn/twty@latest
+      - run: echo "${{ secrets.TWTY_SETTINGS }}" | base64 --decode > ~/.config/twty/settings.json && chmod 0600 ~/.config/twty/settings.json
+      - name: Tweets
+        run: ./graphs.java
+        env:
+          JBANG_REPO: /home/runner/.jbang/repository
