@@ -388,13 +388,39 @@ public class summary {
             System.out.println(message);
             message.setLength(0);
 
-            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  All data time-shift graph " + summaryDate + "\n");
+            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  All data graph " + summaryDate + "\n");
             if (tweeting) {
                 message.append("\n(Automated tweet any analysis will follow later)");
                 lastTweet = sendTweet(
                         message,
                         lastTweet,
                         Paths.get("graphs/COVID-19_Labs_Hospitalized_ICU.gif")
+                );
+            }
+            message.append('\n');
+            System.out.println(message);
+            message.setLength(0);
+
+            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  All data time-shift graph " + summaryDate + "\n");
+            if (tweeting) {
+                message.append("\n(Automated tweet any analysis will follow later)");
+                lastTweet = sendTweet(
+                        message,
+                        lastTweet,
+                        Paths.get("graphs/COVID-19_Labs_Hospitalized_ICU_Timeshifted.gif")
+                );
+            }
+            message.append('\n');
+            System.out.println(message);
+            message.setLength(0);
+
+            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  Last 90 days all data time-shift graph " + summaryDate + "\n");
+            if (tweeting) {
+                message.append("\n(Automated tweet any analysis will follow later)");
+                lastTweet = sendTweet(
+                        message,
+                        lastTweet,
+                        Paths.get("graphs/COVID-19_Labs_Hospitalized_ICU_Timeshifted_Last90.gif")
                 );
             }
             message.append('\n');
@@ -422,7 +448,12 @@ public class summary {
             System.out.println(message);
 
             message.setLength(0);
-            String previousThread = previousThread(summaryDate);
+            String previousThread = null;
+            try {
+                 previousThread = previousThread(summaryDate);
+            } catch (Exception e) {
+                // ignore in case twty cli command is not installed
+            }
             if (previousThread != null) {
                 String dayOfWeek = summaryDate.minusDays(1).getDayOfWeek().toString();
                 message.append(dayOfWeek.charAt(0));
