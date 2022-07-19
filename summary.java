@@ -369,6 +369,7 @@ public class summary {
 
             message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  % PCR Positive Analysis " + summaryDate + "\n");
             if (tweeting) {
+                message.append("\n(Automated tweet any analysis will follow later)");
                 lastTweet = sendTweet(
                         message,
                         lastTweet,
