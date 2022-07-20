@@ -16,6 +16,7 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -436,9 +437,13 @@ public class VisualFit {
             List<Date> times = new ArrayList<>();
             List<Number> values = new ArrayList<>();
             data.forEach(r -> {
-                Date timestamp = parseTimestamp(r.get(0) + " 00:00:00+00");
-                times.add(timestamp);
-                values.add(Double.valueOf(r.get(1)));
+                try {
+                    Date timestamp = parseTimestamp(r.get(0) + " 00:00:00+00");
+                    times.add(timestamp);
+                    values.add(Double.valueOf(r.get(1)));
+                } catch (DateTimeParseException e) {
+                    e.printStackTrace();
+                }
             });
             visualFit.rawDates = times;
             visualFit.rawData = values;
