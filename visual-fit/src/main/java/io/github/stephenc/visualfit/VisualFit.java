@@ -11,6 +11,7 @@ import java.awt.GridBagLayout;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
@@ -19,6 +20,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
@@ -26,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,6 +38,9 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
+import org.apache.commons.lang3.StringUtils;
+import org.knowm.xchart.AnnotationLine;
+import org.knowm.xchart.AnnotationText;
 import org.knowm.xchart.XChartPanel;
 import org.knowm.xchart.XYChart;
 import org.knowm.xchart.XYChartBuilder;
@@ -42,6 +48,7 @@ import org.knowm.xchart.XYSeries;
 import org.knowm.xchart.style.Styler;
 import org.knowm.xchart.style.lines.SeriesLines;
 import org.knowm.xchart.style.markers.SeriesMarkers;
+import org.knowm.xchart.style.theme.Theme;
 
 /**
  * @author Stephen Connolly
@@ -49,10 +56,10 @@ import org.knowm.xchart.style.markers.SeriesMarkers;
 public class VisualFit {
     protected static final OffsetDateTime START_DATE = OffsetDateTime.of(2022, 4, 15, 0, 0, 0, 0, ZoneOffset.UTC);
     protected static final OffsetDateTime END_DATE = OffsetDateTime.of(2022, 7, 15, 0, 0, 0, 0, ZoneOffset.UTC);
-    private XChartPanel<XYChart> smoothed;
-    private XChartPanel<XYChart> raw;
-    private XChartPanel<XYChart> peaks;
-    private XChartPanel<XYChart> residuals;
+    private XChartPanel<MyXYChart> smoothed;
+    private XChartPanel<MyXYChart> raw;
+    private XChartPanel<MyXYChart> peaks;
+    private XChartPanel<MyXYChart> residuals;
     private JPanel graphs;
     private JTextArea params;
     private JPanel root;
@@ -65,6 +72,7 @@ public class VisualFit {
     private OffsetDateTime startDate = START_DATE;
     private OffsetDateTime endDate = END_DATE;
     private double smoothing = 3.0;
+    private Map<LocalDate,String> callouts = new TreeMap<>();
 
     private record Peak(LocalDate maximum, double height, double rate) {
     }
@@ -78,6 +86,7 @@ public class VisualFit {
         Pattern baselineDef = Pattern.compile("^\s*baseline\\s*=\\s*(\\d+(?:.\\d*)?)\\s*(?:#.*)?$");
         Pattern startDef = Pattern.compile("^\s*start\\s*=\\s*(\\d{4}-\\d{2}-\\d{2})\\s*(?:#.*)?$");
         Pattern endDef = Pattern.compile("^\s*end\\s*=\\s*(\\d{4}-\\d{2}-\\d{2})\\s*(?:#.*)?$");
+        Pattern calloutDef = Pattern.compile("^\s*callout=\\s*(\\d{4}-\\d{2}-\\d{2})\\s*,?\\s*([^# ][^#]*)?(?:#.*)?$");
         params.addKeyListener(new KeyAdapter() {
 
             @Override
@@ -94,6 +103,13 @@ public class VisualFit {
                         .map(peak -> new Peak(LocalDate.parse(peak.group(1)), Double.parseDouble(peak.group(2)),
                                 Double.parseDouble(peak.group(3))))
                         .toList();
+                var callouts = params.getText()
+                        .lines()
+                        .map(calloutDef::matcher)
+                        .filter(Matcher::matches)
+                        .map(callout -> new AbstractMap.SimpleImmutableEntry<LocalDate,String>(LocalDate.parse(callout.group(1)),
+                                StringUtils.defaultString(callout.group(2))))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
                 var smoothing = params.getText()
                         .lines()
                         .map(smoothingDef::matcher)
@@ -133,12 +149,15 @@ public class VisualFit {
                         || Math.abs(baseline - VisualFit.this.baseline) > 1.0
                         || !startDate.equals(VisualFit.this.startDate)
                         || !endDate.equals(VisualFit.this.endDate)
+                        || !callouts.equals(VisualFit.this.callouts)
                 ) {
                     VisualFit.this.peakList = peakList;
                     VisualFit.this.baseline = baseline;
                     VisualFit.this.smoothing = smoothing;
                     VisualFit.this.startDate = startDate;
                     VisualFit.this.endDate = endDate;
+                    VisualFit.this.callouts.clear();
+                    VisualFit.this.callouts.putAll(callouts);
                     SwingUtilities.invokeLater(VisualFit.this::updateGraphs);
                 }
             }
@@ -270,10 +289,33 @@ public class VisualFit {
                 .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
                 .setMarker(SeriesMarkers.NONE);
 
+        List.of(smoothed, raw, peaks, residuals).forEach(c -> c.getChart().clearAnnotations());
+        callouts.forEach((date,text) -> {
+            var x = date.atStartOfDay(ZoneOffset.UTC).toOffsetDateTime().toInstant().toEpochMilli();
+            smoothed.getChart().addAnnotation(new AnnotationLine(x, true, false));
+            raw.getChart().addAnnotation(new AnnotationLine(x, true, false));
+            peaks.getChart().addAnnotation(new AnnotationLine(x, true, false));
+            residuals.getChart().addAnnotation(new AnnotationLine(x, true, false));
+            if (StringUtils.isNotBlank(text)) {
+                var y1 = smoothed.getChart().getStyler().getYAxisMax();
+                var y2 = smoothed.getChart().getStyler().getYAxisMin();
+                if (y1 == null) y1 = baseline;
+                if (y2 == null) y2 = 0.0;
+                smoothed.getChart().addAnnotation(new AnnotationText(text, x, y2 + (y1-y2) * 0.9, false));
+                raw.getChart().addAnnotation(new AnnotationText(text, x, y2 + (y1 - y2) * 0.9, false));
+                peaks.getChart().addAnnotation(new AnnotationText(text, x, y2 + (y1 - y2) * 0.9, false));
+                y1 = residuals.getChart().getStyler().getYAxisMax();
+                y2 = residuals.getChart().getStyler().getYAxisMin();
+                if (y1 == null) y1 = baseline;
+                if (y2 == null) y2 = 0.0;
+                residuals.getChart().addAnnotation(new AnnotationText(text, x, y2 + (y1 - y2) * 0.9, false));
+            }
+        });
+
         List.of(smoothed, raw, peaks, residuals).forEach(this::rescaleAndPaintChartPanel);
     }
 
-    private void rescaleAndPaintChartPanel(XChartPanel<XYChart> p) {
+    private void rescaleAndPaintChartPanel(XChartPanel<MyXYChart> p) {
         p.getChart().getStyler().setXAxisMin((double) (startDate.toInstant().toEpochMilli()));
         p.getChart().getStyler().setXAxisMax((double) (endDate.toInstant().toEpochMilli()));
         p.repaint();
@@ -488,8 +530,8 @@ public class VisualFit {
         residuals = new XChartPanel<>(newChart("Residuals", "Number of Positive samples tested", null));
     }
 
-    private XYChart newChart(String chartTitle, String yAxisTitle, Double yAxisMax) {
-        var smoothed = new XYChartBuilder()
+    private MyXYChart newChart(String chartTitle, String yAxisTitle, Double yAxisMax) {
+        var smoothed = new MyXYChartBuilder()
                 .width(940)
                 .height(480)
                 .theme(Styler.ChartTheme.Matlab)
@@ -504,7 +546,36 @@ public class VisualFit {
             smoothed.getStyler().setYAxisMax(yAxisMax);
             smoothed.getStyler().setYAxisMin(-500.0);
         }
-        return smoothed;
+        return (MyXYChart) smoothed;
+    }
+
+    public static class MyXYChart extends XYChart {
+        public MyXYChart(int width, int height) {
+            super(width, height);
+        }
+
+        public MyXYChart(int width, int height, Theme theme) {
+            super(width, height, theme);
+        }
+
+        public MyXYChart(int width, int height, Styler.ChartTheme chartTheme) {
+            super(width, height, chartTheme);
+        }
+
+        public MyXYChart(XYChartBuilder chartBuilder) {
+            super(chartBuilder);
+        }
+
+        public void clearAnnotations() {
+            annotations.clear();
+        }
+    }
+
+    public static class MyXYChartBuilder extends XYChartBuilder {
+        @Override
+        public MyXYChart build() {
+            return new MyXYChart(this);
+        }
     }
 
     /**
