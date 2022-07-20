@@ -1660,6 +1660,254 @@ public class graphs {
         System.err.println("./graphs/COVID-19_Labs_Hospitalized_ICU.gif");
 
         /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+         * COVID-19_Labs_Hospitalized_ICU_Last90
+         * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+        try (ImageOutputStream output = new FileImageOutputStream(
+                new File("./graphs/COVID-19_Labs_Hospitalized_ICU_Last90.gif"))) {
+            GifSequenceWriter writer = null;
+            try {
+                for (double sigma = 0.0; sigma <= 20.0; sigma += 0.5) {
+                    chart = new XYChartBuilder()
+                            .width(1200)
+                            .height(675)
+                            .theme(Styler.ChartTheme.Matlab)
+                            .xAxisTitle("Date")
+                            .yAxisTitle("Relative to Jan 2021 wave maximum")
+                            .title(String.format(
+                                    "Comparisons after applying Gaussian weighted smoothing (sigma=%.1f days)",
+                                    sigma))
+                            .build();
+                    chart.getStyler().setDatePattern("dd-MMM-yyyy");
+                    chart.getStyler().setXAxisMin(ninetyDaysAgo.toEpochMilli() * 1.0);
+                    chart.getStyler().setYAxisMax(4.0);
+                    chart.getStyler().setYAxisMin(0.0);
+//                    chart.getStyler().setXAxisMin(
+//                            (double) (OffsetDateTime.of(2020, 12, 15, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()
+//                                    .toEpochMilli()));
+//                    chart.getStyler().setXAxisMax(
+//                            (double) (OffsetDateTime.of(2021, 2, 15, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()
+//                                    .toEpochMilli()));
+
+                    {
+                        List<Date> times = new ArrayList<>(labTests.size());
+                        List<Number> values = new ArrayList<>(labTests.size());
+                        LabTests[] previous = new LabTests[1];
+                        labTests.forEach(r -> {
+                            times.add(parseTimestamp(r.timestamp));
+                            values.add((r.totalPositives - (previous[0] == null ? 0 : previous[0].totalPositives)) * 4.0
+                                    / (
+                                    r.totalLabsTotal - (previous[0] == null ? 0 : previous[0].totalLabsTotal)));
+                            previous[0] = r;
+                        });
+                        chart.addSeries("% Labs Positive", times, gaussianSmooth(replaceNulls(values, 0), sigma))
+                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+                                .setMarker(SeriesMarkers.NONE);
+                    }
+
+                    {
+                        Date firstAntigen = parseTimestamp(antigens.get(0).timestamp);
+                        List<Date> times = new ArrayList<>(labTests.size());
+                        List<Number> values = new ArrayList<>(labTests.size());
+                        LabTests[] previous = new LabTests[1];
+                        Long max = labTests.stream().filter(r -> r.timestamp.compareTo("2021/04") < 0).map(r -> {
+                            long delta = previous[0] == null
+                                    ? r.totalPositives
+                                    : r.totalPositives - previous[0].totalPositives;
+                            previous[0] = r;
+                            return delta;
+                        }).max(Long::compareTo).orElse(1L);
+                        previous[0] = null;
+                        Double[] antigenRatio = new Double[1];
+                        labTests.forEach(r -> {
+                            Date timestamp = parseTimestamp(r.timestamp);
+                            times.add(timestamp);
+                            long pcrPositives =
+                                    r.totalPositives - (previous[0] == null ? 0 : previous[0].totalPositives);
+                            Long antigenPositives = antigens.stream()
+                                    .filter(x -> parseTimestamp(x.timestamp).toInstant()
+                                            .atOffset(ZoneOffset.UTC).toLocalDate()
+                                            .equals(timestamp.toInstant().atOffset(ZoneOffset.UTC)
+                                                    .toLocalDate()))
+                                    .map(x -> x.positives)
+                                    .findAny()
+                                    .map(p -> {
+                                        if (pcrPositives > 0) {
+                                            antigenRatio[0] = antigenRatio[0] == null
+                                                    ? p / pcrPositives
+                                                    : 0.9 * antigenRatio[0] + 0.1 * p / pcrPositives;
+                                        }
+                                        return p;
+                                    })
+                                    .orElseGet(() -> {
+                                        if (guessAntigen && firstAntigen.getTime() < timestamp.getTime()) {
+                                            return trendGuessing
+                                                    ? Math.round(antigenRatio[0] * pcrPositives)
+                                                    : Math.round(pcrPositives / FRACTION_OVER_40_YEARS_OLD
+                                                            * FRACTION_UNDER_40_YEARS_OLD);
+                                        } else {
+                                            return 0L;
+                                        }
+                                    });
+                            double value = pcrPositives + antigenPositives;
+                            values.add(value / max);
+
+                            previous[0] = r;
+                        });
+                        chart.addSeries("Labs and Antigen Positives", times,
+                                        gaussianSmooth(replaceNulls(values, 0), sigma))
+                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+                                .setMarker(SeriesMarkers.NONE);
+                    }
+
+                    {
+                        List<Date> times = new ArrayList<>(acuteHospitals.size());
+                        List<Number> values = new ArrayList<>(acuteHospitals.size());
+                        Long max = acuteHospitals.stream().filter(r -> r.admissionsCovidPositive != null)
+                                .map(r -> r.admissionsCovidPositive).max(Long::compareTo).orElse(1L);
+                        acuteHospitals.forEach(r -> {
+                            times.add(new Date(parseTimestamp(r.timestamp).getTime()));
+                            values.add(
+                                    r.admissionsCovidPositive == null ? null : r.admissionsCovidPositive * 1.0 / max);
+                        });
+                        chart.addSeries("New Covid admissions to Hospital", times,
+                                        gaussianSmooth(replaceNulls(values, 0), sigma))
+                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+                                .setMarker(SeriesMarkers.NONE);
+                    }
+
+
+                    {
+                        List<Date> times = new ArrayList<>(icuHospitals.size());
+                        List<Number> values = new ArrayList<>(icuHospitals.size());
+                        Long max = icuHospitals.stream().filter(r -> r.admissionsCovidPositive != null)
+                                .map(r -> r.admissionsCovidPositive).max(Long::compareTo).orElse(1L);
+                        icuHospitals.forEach(r -> {
+                            times.add(new Date(parseTimestamp(r.timestamp).getTime()));
+                            values.add(
+                                    r.admissionsCovidPositive == null ? null : r.admissionsCovidPositive * 1.0 / max);
+                        });
+                        chart.addSeries("New Covid admissions to ICU", times,
+                                        gaussianSmooth(replaceNulls(values, 0), sigma))
+                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+                                .setMarker(SeriesMarkers.NONE);
+                    }
+
+//                    {
+//                        List<Date> times = new ArrayList<>(acuteHospitals.size());
+//                        List<Number> values = new ArrayList<>(acuteHospitals.size());
+//                        Long max = acuteHospitals.stream().filter(r -> r.admissionsCovidPositive != null && r
+//                        .newCovidCasesCovid  != null)
+//                                .map(r -> r.newCovidCasesCovid - r.admissionsCovidPositive).max(Long::compareTo)
+//                                .orElse(1L);
+//                        acuteHospitals.forEach(r -> {
+//                            times.add(new Date(parseTimestamp(r.timestamp).getTime() - TimeUnit.DAYS.toMillis(9)));
+//                            values.add(
+//                                    r.admissionsCovidPositive == null || r.newCovidCasesCovid == null ? null : (r
+//                                    .newCovidCasesCovid - r.admissionsCovidPositive) * 1.0 / max);
+//                        });
+//                        chart.addSeries("New Covid detected in Hospital (9 days later)", times,
+//                                        gaussianSmooth(replaceNulls(values, 0), sigma))
+//                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+//                                .setMarker(SeriesMarkers.NONE);
+//                    }
+//
+//                    {
+//                        List<Date> times = new ArrayList<>(acuteHospitals.size());
+//                        List<Number> values = new ArrayList<>(acuteHospitals.size());
+//                        Long max = acuteHospitals.stream().filter(r -> r.dischargesCovidPositive != null)
+//                                .map(r -> r.dischargesCovidPositive).max(Long::compareTo).orElse(1L);
+//                        acuteHospitals.forEach(r -> {
+//                            times.add(new Date(parseTimestamp(r.timestamp).getTime() - TimeUnit.DAYS.toMillis(17)));
+//                            values.add(
+//                                    r.dischargesCovidPositive == null ? null : r.dischargesCovidPositive * 1.0 / max);
+//                        });
+//                        chart.addSeries("Covid positive discharges from Hospital (17 days later)", times,
+//                                        gaussianSmooth(replaceNulls(values, 0), sigma))
+//                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+//                                .setMarker(SeriesMarkers.NONE);
+//                    }
+//
+//                    {
+//                        List<Date> times = new ArrayList<>(icuHospitals.size());
+//                        List<Number> values = new ArrayList<>(icuHospitals.size());
+//                        Long max = icuHospitals.stream().filter(r -> r.dischargesCovidPositive != null)
+//                                .map(r -> r.dischargesCovidPositive).max(Long::compareTo).orElse(1L);
+//                        icuHospitals.forEach(r -> {
+//                            times.add(new Date(parseTimestamp(r.timestamp).getTime() - TimeUnit.DAYS.toMillis(17)));
+//                            values.add(
+//                                    r.dischargesCovidPositive == null ? null : r.dischargesCovidPositive * 1.0 / max);
+//                        });
+//                        chart.addSeries("ICU discharges (17 days later)", times,
+//                                        gaussianSmooth(replaceNulls(values, 0), sigma))
+//                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+//                                .setMarker(SeriesMarkers.NONE);
+//                    }
+
+                    //                    {
+//                        List<Date> times = new ArrayList<>(acuteHospitals.size());
+//                        List<Number> values = new ArrayList<>(acuteHospitals.size());
+//                        Long max = acuteHospitals.stream().filter(r -> r.currentConfirmedCovidPositive != null)
+//                                .map(r -> r.currentConfirmedCovidPositive).max(Long::compareTo).orElse(1L);
+//                        acuteHospitals.forEach(r -> {
+//                            times.add(parseTimestamp(r.timestamp));
+//                            values.add(r.currentConfirmedCovidPositive * 1.0 / max);
+//                        });
+//                        chart.addSeries("Hospital Occuopancy", times, gaussianSmooth(replaceNulls(values, 0), sigma))
+//                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+//                                .setMarker(SeriesMarkers.NONE);
+//                    }
+
+//                    {
+//                        List<Date> times = new ArrayList<>(icuHospitals.size());
+//                        List<Number> values = new ArrayList<>(icuHospitals.size());
+//                        Long max = icuHospitals.stream().filter(r -> r.currentConfirmedCovidPositive != null)
+//                                .map(r -> r.currentConfirmedCovidPositive).max(Long::compareTo).orElse(1L);
+//                        icuHospitals.forEach(r -> {
+//                            times.add(parseTimestamp(r.timestamp));
+//                            values.add(r.currentConfirmedCovidPositive * 1.0 / max);
+//                        });
+//                        chart.addSeries("ICU Occupancy", times, gaussianSmooth(replaceNulls(values, 0), sigma))
+//                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+//                                .setMarker(SeriesMarkers.NONE);
+//                    }
+
+                    {
+                        List<Date> times = new ArrayList<>(icuHospitals.size());
+                        List<Number> values = new ArrayList<>(icuHospitals.size());
+                        Long max = stats.stream().filter(r -> r.deathsTodayDOD != null)
+                                .map(r -> r.deathsTodayDOD).max(Long::compareTo).orElse(1L);
+                        stats.forEach(r -> {
+                            times.add(new Date(parseTimestamp(r.timestamp).getTime()));
+                            values.add(r.deathsTodayDOD == null ? null : r.deathsTodayDOD * 1.0 / max);
+                        });
+                        chart.addSeries("Deaths", times,
+                                        gaussianSmooth(replaceNulls(values, 0), Math.max(sigma, 0)))
+                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+                                .setMarker(SeriesMarkers.NONE);
+                    }
+
+                    BufferedImage image = BitmapEncoder.getBufferedImage(chart);
+                    if (writer == null) {
+                        writer = new GifSequenceWriter(output, image.getType(), 750, true);
+                    }
+                    writer.writeToSequence(image);
+                    if (Math.abs(sigma - 3) < 0.01) {
+                        BitmapEncoder.saveBitmap(chart,
+                                String.format("./graphs/COVID-19_Labs_Hospitalized_ICU_Last90-%04.1f.png", sigma),
+                                BitmapEncoder.BitmapFormat.PNG);
+                    }
+                }
+            } finally {
+                if (writer != null) {
+                    writer.close();
+                    writer = null;
+                }
+            }
+        }
+        System.err.println("./graphs/COVID-19_Labs_Hospitalized_ICU_Last90.gif");
+
+        /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
          * COVID-19_Labs_Hospitalized_ICU_Timeshifted
          * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
