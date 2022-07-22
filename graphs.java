@@ -22,6 +22,7 @@ import java.time.OffsetDateTime;
 import java.time.Period;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.IsoFields;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -54,6 +55,8 @@ import org.knowm.xchart.style.markers.SeriesMarkers;
 
 public class graphs {
 
+    protected static final OffsetDateTime GIF_END_DATE = LocalDate.now().atStartOfDay().atOffset(ZoneOffset.UTC).plusDays(15);
+    protected static final OffsetDateTime GIF_START_DATE = GIF_END_DATE.minusMonths(8);
     private static boolean guessAntigen = true;
     protected static final double FRACTION_OVER_40_YEARS_OLD = (2056616.0 / (2705249.0 + 2056616.0));
     protected static final double FRACTION_UNDER_40_YEARS_OLD = 1.0 - FRACTION_OVER_40_YEARS_OLD;
@@ -2424,12 +2427,8 @@ public class graphs {
                     chart.getStyler().setDatePattern("dd-MMM-yyyy");
                     chart.getStyler().setYAxisMax(0.6);
                     chart.getStyler().setYAxisMin(0.0);
-                    chart.getStyler().setXAxisMin(
-                            (double) (OffsetDateTime.of(2021, 11, 15, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()
-                                    .toEpochMilli()));
-                    chart.getStyler().setXAxisMax(
-                            (double) (OffsetDateTime.of(2022, 7, 15, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()
-                                    .toEpochMilli()));
+                    chart.getStyler().setXAxisMin((double) (GIF_START_DATE.toInstant().toEpochMilli()));
+                    chart.getStyler().setXAxisMax((double) (GIF_END_DATE.toInstant().toEpochMilli()));
 
                     {
                         List<Date> times = new ArrayList<>(labTests.size());
@@ -2495,12 +2494,8 @@ public class graphs {
                     chart.getStyler().setDatePattern("dd-MMM-yyyy");
                     chart.getStyler().setYAxisMax(0.6);
                     chart.getStyler().setYAxisMin(0.0);
-                    chart.getStyler().setXAxisMin(
-                            (double) (OffsetDateTime.of(2021, 11, 15, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()
-                                    .toEpochMilli()));
-                    chart.getStyler().setXAxisMax(
-                            (double) (OffsetDateTime.of(2022, 7, 15, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()
-                                    .toEpochMilli()));
+                    chart.getStyler().setXAxisMin((double) (GIF_START_DATE.toInstant().toEpochMilli()));
+                    chart.getStyler().setXAxisMax((double) (GIF_END_DATE.toInstant().toEpochMilli()));
 
                     {
                         List<Date> times = new ArrayList<>(labTests.size());
@@ -2571,12 +2566,8 @@ public class graphs {
                                     sigma))
                             .build();
                     chart.getStyler().setDatePattern("dd-MMM");
-                    chart.getStyler().setXAxisMin(
-                            (double) (OffsetDateTime.of(2021, 11, 15, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()
-                                    .toEpochMilli()));
-                    chart.getStyler().setXAxisMax(
-                            (double) (OffsetDateTime.of(2022, 7, 15, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()
-                                    .toEpochMilli()));
+                    chart.getStyler().setXAxisMin((double) (GIF_START_DATE.toInstant().toEpochMilli()));
+                    chart.getStyler().setXAxisMax((double) (GIF_END_DATE.toInstant().toEpochMilli()));
                     chart.getStyler().setYAxisMax(30000.0);
                     chart.getStyler().setYAxisMin(-500.0);
 
