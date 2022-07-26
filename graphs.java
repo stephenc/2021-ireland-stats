@@ -1416,6 +1416,78 @@ public class graphs {
         System.err.println("./graphs/COVID-19_Laboratory_Testing_Percent_Positive_Last30.png");
 
         /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+         * COVID-19_Number_of_tests_Time_Series_Smoothed
+         * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+        chart = new XYChartBuilder()
+                .width(1200)
+                .height(675)
+                .theme(Styler.ChartTheme.Matlab)
+                .xAxisTitle("Date")
+                .yAxisTitle("Number of samples tested")
+                .title("Laboratory Testing Load (smoothed)")
+                .build();
+        chart.getStyler().setDatePattern("dd-MMM-yyyy");
+
+        {
+            Date firstAntigen = parseTimestamp(antigens.get(0).timestamp);
+            List<Date> times = new ArrayList<>(labTests.size());
+            List<Number> values = new ArrayList<>(labTests.size());
+            LabTests[] previous = new LabTests[1];
+            labTests.forEach(r -> {
+                Date timestamp = parseTimestamp(r.timestamp);
+                //Date timestamp = new Date(parseTimestamp(r.timestamp).toInstant().minus(1, java.time.temporal
+                // .ChronoUnit.DAYS).toEpochMilli());
+                times.add(timestamp);
+                long pcrTests = r.totalLabsTotal - (previous[0] == null ? 0 : previous[0].totalLabsTotal);
+                values.add(pcrTests);
+                previous[0] = r;
+            });
+            chart.addSeries("Number of PCR tests", times, gaussianSmooth(values, 3))
+                    .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+                    .setMarker(SeriesMarkers.NONE);
+        }
+        BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_Number_of_tests_Time_Series_Smoothed.png",
+                BitmapEncoder.BitmapFormat.PNG);
+        System.err.println("./graphs/COVID-19_Number_of_tests_Time_Series_Smoothed.png");
+
+        chart = new XYChartBuilder()
+                .width(1200)
+                .height(675)
+                .theme(Styler.ChartTheme.Matlab)
+                .xAxisTitle("Date")
+                .yAxisTitle("Number of samples tested (smoothed)")
+                .title("Laboratory Testing Load")
+                .build();
+        chart.getStyler().setDatePattern("dd-MMM-yyyy");
+
+        {
+            Date firstAntigen = parseTimestamp(antigens.get(0).timestamp);
+            List<Date> times = new ArrayList<>(labTests.size());
+            List<Number> values = new ArrayList<>(labTests.size());
+            LabTests[] previous = new LabTests[1];
+            labTests.forEach(r -> {
+                Date timestamp = parseTimestamp(r.timestamp);
+                //Date timestamp = new Date(parseTimestamp(r.timestamp).toInstant().minus(1, java.time.temporal
+                // .ChronoUnit.DAYS).toEpochMilli());
+                if (timestamp.getTime() >= ninetyDaysAgo.toEpochMilli()) {
+                    times.add(timestamp);
+                    long pcrTests = r.totalLabsTotal - (previous[0] == null ? 0 : previous[0].totalLabsTotal);
+                    values.add(pcrTests);
+                }
+                previous[0] = r;
+            });
+            chart.addSeries("Number of PCR tests", times, gaussianSmooth(values, 3))
+                    .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+                    .setMarker(SeriesMarkers.NONE);
+        }
+        chart.getStyler().setXAxisMin(ninetyDaysAgo.toEpochMilli() * 1.0);
+
+        BitmapEncoder.saveBitmap(chart, "./graphs/COVID-19_Number_of_tests_Time_Series_Smoothed_Last90.png",
+                BitmapEncoder.BitmapFormat.PNG);
+        System.err.println("./graphs/COVID-19_Number_of_tests_Time_Series_Smoothed_Last90.png");
+
+        /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
          * COVID-19_Labs_Hospitalized_ICU
          * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
