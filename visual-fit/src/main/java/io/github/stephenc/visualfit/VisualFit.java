@@ -11,7 +11,6 @@ import java.awt.GridBagLayout;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
@@ -24,12 +23,14 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -66,13 +67,13 @@ public class VisualFit {
 
     private List<Peak> peakList = new ArrayList<>();
 
-    private double baseline = 0;
+    private Map<LocalDate, Double> baselines = new TreeMap<>();
     private List<Date> rawDates = new ArrayList<>();
     private List<Number> rawData = new ArrayList<>();
     private OffsetDateTime startDate = START_DATE;
     private OffsetDateTime endDate = END_DATE;
     private double smoothing = 3.0;
-    private Map<LocalDate,String> callouts = new TreeMap<>();
+    private Map<LocalDate, String> callouts = new TreeMap<>();
 
     private record Peak(LocalDate maximum, double height, double rate) {
     }
@@ -83,7 +84,8 @@ public class VisualFit {
         Pattern peakDef = Pattern.compile(
                 "^\\s*(\\d{4}-\\d{2}-\\d{2})\\s*,\\s*(\\d+(?:.\\d*)?)\\s*,\\s*(\\d+(?:.\\d*)?)\\s*(?:#.*)?$");
         Pattern smoothingDef = Pattern.compile("^\s*smoothing\\s*=\\s*(\\d+(?:.\\d*)?)\\s*(?:#.*)?$");
-        Pattern baselineDef = Pattern.compile("^\s*baseline\\s*=\\s*(\\d+(?:.\\d*)?)\\s*(?:#.*)?$");
+        Pattern baselineDef = Pattern.compile(
+                "^\s*baseline\\s*=\\s*(\\d+(?:\\.\\d*)?)(?:\\s*,?\\s*(\\d{4}-\\d{2}-\\d{2})|[0-9-]+)?\\s*(?:#.*)?$");
         Pattern startDef = Pattern.compile("^\s*start\\s*=\\s*(\\d{4}-\\d{2}-\\d{2})\\s*(?:#.*)?$");
         Pattern endDef = Pattern.compile("^\s*end\\s*=\\s*(\\d{4}-\\d{2}-\\d{2})\\s*(?:#.*)?$");
         Pattern calloutDef = Pattern.compile("^\s*callout=\\s*(\\d{4}-\\d{2}-\\d{2})\\s*,?\\s*([^# ][^#]*)?(?:#.*)?$");
@@ -107,7 +109,8 @@ public class VisualFit {
                         .lines()
                         .map(calloutDef::matcher)
                         .filter(Matcher::matches)
-                        .map(callout -> new AbstractMap.SimpleImmutableEntry<LocalDate,String>(LocalDate.parse(callout.group(1)),
+                        .map(callout -> new AbstractMap.SimpleImmutableEntry<LocalDate, String>(
+                                LocalDate.parse(callout.group(1)),
                                 StringUtils.defaultString(callout.group(2))))
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
                 var smoothing = params.getText()
@@ -117,13 +120,22 @@ public class VisualFit {
                         .findFirst()
                         .map(m -> Double.valueOf(m.group(1)))
                         .orElse(3.0);
-                var baseline = params.getText()
+                AtomicBoolean firstBaseline = new AtomicBoolean(true);
+                var baselines = params.getText()
                         .lines()
                         .map(baselineDef::matcher)
                         .filter(Matcher::matches)
-                        .findFirst()
-                        .map(m -> Double.valueOf(m.group(1)))
-                        .orElse(0.0);
+                        .map(baseline ->
+                                new AbstractMap.SimpleImmutableEntry<LocalDate, Double>(
+                                        baseline.group(2) != null
+                                                ? LocalDate.parse(baseline.group(2))
+                                                : firstBaseline.compareAndSet(true, false)
+                                                        ? LocalDate.MIN
+                                                        : LocalDate.MAX,
+                                        Double.valueOf(baseline.group(1))
+                                )
+                        )
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (x, y) -> x, TreeMap::new));
                 var startDate = params.getText()
                         .lines()
                         .map(startDef::matcher)
@@ -146,13 +158,13 @@ public class VisualFit {
 
                 if (!VisualFit.this.peakList.equals(peakList)
                         || Math.abs(smoothing - VisualFit.this.smoothing) > 0.01
-                        || Math.abs(baseline - VisualFit.this.baseline) > 1.0
+                        || !equivalent(VisualFit.this.baselines, baselines)
                         || !startDate.equals(VisualFit.this.startDate)
                         || !endDate.equals(VisualFit.this.endDate)
                         || !callouts.equals(VisualFit.this.callouts)
                 ) {
                     VisualFit.this.peakList = peakList;
-                    VisualFit.this.baseline = baseline;
+                    VisualFit.this.baselines = baselines;
                     VisualFit.this.smoothing = smoothing;
                     VisualFit.this.startDate = startDate;
                     VisualFit.this.endDate = endDate;
@@ -162,6 +174,18 @@ public class VisualFit {
                 }
             }
         });
+    }
+
+    private boolean equivalent(Map<LocalDate, Double> a, Map<LocalDate, Double> b) {
+        if (!a.keySet().equals(b.keySet())) {
+            return false;
+        }
+        for (Map.Entry<LocalDate, Double> e : a.entrySet()) {
+            if (Math.abs(b.get(e.getKey()) - e.getValue()) > 1.0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void updateGraphs() {
@@ -175,12 +199,29 @@ public class VisualFit {
         List<Date> xAxis = new ArrayList<>();
         List<Double> fit = new ArrayList<>();
         List<Double> residualValues = new ArrayList<>();
+        Iterator<Map.Entry<LocalDate, Double>> baseline = baselines.entrySet().iterator();
+        Map.Entry<LocalDate, Double> previousBaseline =
+                baseline.hasNext() ? baseline.next() : new AbstractMap.SimpleImmutableEntry<>(LocalDate.MIN, 0.0);
+        Map.Entry<LocalDate, Double> nextBaseline =
+                baseline.hasNext() ? baseline.next() : new AbstractMap.SimpleImmutableEntry<>(LocalDate.MAX, previousBaseline.getValue());
+
         {
             var i = startDate;
             while (!i.isAfter(endDate)) {
                 var date = new Date(i.toInstant().toEpochMilli());
                 xAxis.add(date);
-                fit.add(baseline);
+                while (baseline.hasNext() && nextBaseline.getKey().isBefore(i.toLocalDate())) {
+                    previousBaseline = nextBaseline;
+                    nextBaseline = baseline.next();
+                }
+                var x1 = previousBaseline.getKey().toEpochDay();
+                var x2 = nextBaseline.getKey().toEpochDay();
+                var xc = i.toLocalDate().toEpochDay();
+                var yc = nextBaseline.getKey().isBefore(i.toLocalDate())
+                        ? nextBaseline.getValue()
+                        : (nextBaseline.getValue() - previousBaseline.getValue()) / (x2 - x1) * (xc - x1)
+                                + previousBaseline.getValue();
+                fit.add(yc);
 
                 var j = ChronoUnit.DAYS.between(rawDates.get(0).toInstant().atOffset(ZoneOffset.UTC),
                         i);
@@ -201,6 +242,8 @@ public class VisualFit {
                 residualValues.add(null);
             }
         }
+        var avgBaseline = fit.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        var baselineValues = new ArrayList<>(fit);
 
         Map<String, List<Double>> peakMap = new LinkedHashMap<>();
         for (int i = 0; i < peakList.size(); i++) {
@@ -215,7 +258,7 @@ public class VisualFit {
             xAxis.forEach(date -> {
                 var x = TimeUnit.MILLISECONDS.toDays(date.getTime() - max);
                 var value = h * (Math.exp(-Math.exp(-k * x)) - Math.exp(-Math.exp(-k * (x - 1))));
-                values.add(value >= 0.5 ? value : null);
+                values.add(value >= 1.0 ? value : null);
             });
             peakMap.put(name, values);
             for (int j = 0; j < fit.size(); j++) {
@@ -238,6 +281,10 @@ public class VisualFit {
         }
 
         peaks.getChart().addSeries("Fit", xAxis, fit)
+                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+                .setMarker(SeriesMarkers.NONE)
+                .setLineStyle(SeriesLines.DASH_DOT);
+        peaks.getChart().addSeries("Baseline", xAxis, baselineValues)
                 .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
                 .setMarker(SeriesMarkers.NONE)
                 .setLineStyle(SeriesLines.DASH_DOT);
@@ -290,7 +337,7 @@ public class VisualFit {
                 .setMarker(SeriesMarkers.NONE);
 
         List.of(smoothed, raw, peaks, residuals).forEach(c -> c.getChart().clearAnnotations());
-        callouts.forEach((date,text) -> {
+        callouts.forEach((date, text) -> {
             var x = date.atStartOfDay(ZoneOffset.UTC).toOffsetDateTime().toInstant().toEpochMilli();
             smoothed.getChart().addAnnotation(new AnnotationLine(x, true, false));
             raw.getChart().addAnnotation(new AnnotationLine(x, true, false));
@@ -299,15 +346,23 @@ public class VisualFit {
             if (StringUtils.isNotBlank(text)) {
                 var y1 = smoothed.getChart().getStyler().getYAxisMax();
                 var y2 = smoothed.getChart().getStyler().getYAxisMin();
-                if (y1 == null) y1 = baseline;
-                if (y2 == null) y2 = 0.0;
-                smoothed.getChart().addAnnotation(new AnnotationText(text, x, y2 + (y1-y2) * 0.9, false));
+                if (y1 == null) {
+                    y1 = avgBaseline;
+                }
+                if (y2 == null) {
+                    y2 = 0.0;
+                }
+                smoothed.getChart().addAnnotation(new AnnotationText(text, x, y2 + (y1 - y2) * 0.9, false));
                 raw.getChart().addAnnotation(new AnnotationText(text, x, y2 + (y1 - y2) * 0.9, false));
                 peaks.getChart().addAnnotation(new AnnotationText(text, x, y2 + (y1 - y2) * 0.9, false));
                 y1 = residuals.getChart().getStyler().getYAxisMax();
                 y2 = residuals.getChart().getStyler().getYAxisMin();
-                if (y1 == null) y1 = baseline;
-                if (y2 == null) y2 = 0.0;
+                if (y1 == null) {
+                    y1 = avgBaseline;
+                }
+                if (y2 == null) {
+                    y2 = 0.0;
+                }
                 residuals.getChart().addAnnotation(new AnnotationText(text, x, y2 + (y1 - y2) * 0.9, false));
             }
         });
@@ -389,10 +444,11 @@ public class VisualFit {
     public static void main(String[] args) throws IOException {
         var visualFit = new VisualFit();
 
-        if (args.length == 0 || "irl".equalsIgnoreCase(args[0]) || "irl-pcr".equalsIgnoreCase(args[0])) {
+        if (args.length == 0 || "irl".equalsIgnoreCase(args[0]) || "irl-pcr".equalsIgnoreCase(args[0]) || "irl-ant".equalsIgnoreCase(args[0])) {
             CsvMapper csvMapper = new CsvMapper();
             CsvSchema schema = CsvSchema.emptySchema().withHeader();
             var antigenWeight = "irl-pcr".equalsIgnoreCase(args[0]) ? 0 : 1;
+            var pcrWeight = "irl-ant".equalsIgnoreCase(args[0]) ? 0 : 1;
 
             List<LabTests> labTests = csvMapper.readerFor(LabTests.class)
                     .with(schema)
@@ -452,7 +508,7 @@ public class VisualFit {
                                     return 0L;
                                 }
                             });
-                    values.add(pcrPositives + antigenWeight * antigenPositives);
+                    values.add(pcrWeight * pcrPositives + antigenWeight * antigenPositives);
                     previous[0] = r;
                 });
                 System.out.println(predictor);
