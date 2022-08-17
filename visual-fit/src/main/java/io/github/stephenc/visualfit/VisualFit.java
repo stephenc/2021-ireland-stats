@@ -449,6 +449,7 @@ public class VisualFit {
             CsvSchema schema = CsvSchema.emptySchema().withHeader();
             var antigenWeight = "irl-pcr".equalsIgnoreCase(args[0]) ? 0 : 1;
             var pcrWeight = "irl-ant".equalsIgnoreCase(args[0]) ? 0 : 1;
+            var estimateAntigen = !"irl-ant".equalsIgnoreCase(args[0]);
 
             List<LabTests> labTests = csvMapper.readerFor(LabTests.class)
                     .with(schema)
@@ -495,7 +496,7 @@ public class VisualFit {
                                 return p;
                             })
                             .orElseGet(() -> {
-                                if (firstAntigen.getTime() < timestamp.getTime()) {
+                                if (estimateAntigen && firstAntigen.getTime() < timestamp.getTime()) {
                                     var predicted = Math.round(predictor.guess(
                                             timestamp.toInstant().atOffset(ZoneOffset.UTC).get(ChronoField.DAY_OF_WEEK),
                                             pcrPositives)
@@ -508,7 +509,11 @@ public class VisualFit {
                                     return 0L;
                                 }
                             });
-                    values.add(pcrWeight * pcrPositives + antigenWeight * antigenPositives);
+                    if (!estimateAntigen && antigenPositives == 0L) {
+                        times.remove(values.size());
+                    } else {
+                        values.add(pcrWeight * pcrPositives + antigenWeight * antigenPositives);
+                    }
                     previous[0] = r;
                 });
                 System.out.println(predictor);
