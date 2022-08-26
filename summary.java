@@ -16,6 +16,7 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -269,6 +270,34 @@ public class summary {
             AcuteHospital previous = acuteHospitals.stream()
                     .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate.minusDays(1)))
                     .findFirst().orElse(null);
+            LocalDate previousLevelDate = null;
+            AcuteHospital previousLevel = null;
+            boolean rising = false;
+            if (current != null && current.currentConfirmedCovidPositive != null) {
+                for (int i = acuteHospitals.size() - 1; i > 0; i--) {
+                    AcuteHospital level = acuteHospitals.get(i);
+                    LocalDate levelDate = parseTimestamp(level.timestamp).toLocalDate();
+                    if (!levelDate.isBefore(summaryDate)) {
+                        continue;
+                    }
+                    if (level.currentConfirmedCovidPositive != null) {
+                        if (level.currentConfirmedCovidPositive < current.currentConfirmedCovidPositive) {
+                            previousLevelDate = levelDate;
+                            previousLevel = level;
+                            break;
+                        }
+                        if (level.currentConfirmedCovidPositive.equals(current.currentConfirmedCovidPositive)) {
+                            if (rising) {
+                                previousLevelDate = levelDate;
+                                previousLevel = level;
+                                break;
+                            }
+                        } else {
+                            rising = true;
+                        }
+                    }
+                }
+            }
 
             message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital general " + summaryDate + "\n");
             message.append('\n');
@@ -306,6 +335,13 @@ public class summary {
             } else {
                 message.append("\u2022 Data not currently available" + "\n");
             }
+            if (haveToday && previousLevel != null && previousLevelDate.until(summaryDate, ChronoUnit.DAYS) > 7) {
+                message.append(String.format("\u2022 Occupancy has been at or above %d for %d days since %s%n",
+                        previousLevel.currentConfirmedCovidPositive,
+                        previousLevelDate.until(summaryDate, ChronoUnit.DAYS),
+                        summaryDate
+                ));
+            }
         }
 
         if (tweeting) {
@@ -328,6 +364,34 @@ public class summary {
             ICUHospital previous = icuHospitals.stream()
                     .filter(r -> parseTimestamp(r.timestamp).toLocalDate().equals(summaryDate.minusDays(1)))
                     .findFirst().orElse(null);
+            LocalDate previousLevelDate = null;
+            ICUHospital previousLevel = null;
+            boolean rising = false;
+            if (current != null && current.currentConfirmedCovidPositive != null) {
+                for (int i = icuHospitals.size() - 1; i > 0; i--) {
+                    ICUHospital level = icuHospitals.get(i);
+                    LocalDate levelDate = parseTimestamp(level.timestamp).toLocalDate();
+                    if (!levelDate.isBefore(summaryDate)) {
+                        continue;
+                    }
+                    if (level.currentConfirmedCovidPositive != null) {
+                        if (level.currentConfirmedCovidPositive < current.currentConfirmedCovidPositive) {
+                            previousLevelDate = levelDate;
+                            previousLevel = level;
+                            break;
+                        }
+                        if (level.currentConfirmedCovidPositive.equals(current.currentConfirmedCovidPositive)) {
+                            if (rising) {
+                                previousLevelDate = levelDate;
+                                previousLevel = level;
+                                break;
+                            }
+                        } else {
+                            rising = true;
+                        }
+                    }
+                }
+            }
 
             message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital ICU " + summaryDate + "\n");
             message.append('\n');
@@ -354,6 +418,13 @@ public class summary {
                 ));
             } else {
                 message.append("\u2022 Data not currently available" + "\n");
+            }
+            if (haveToday && previousLevel != null && previousLevelDate.until(summaryDate, ChronoUnit.DAYS) > 7) {
+                message.append(String.format("\u2022 Occupancy has been at or above %d for %d days since %s%n",
+                        previousLevel.currentConfirmedCovidPositive,
+                        previousLevelDate.until(summaryDate, ChronoUnit.DAYS),
+                        summaryDate
+                ));
             }
             if (tweeting) {
                 lastTweet = sendTweet(
