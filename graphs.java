@@ -1755,7 +1755,7 @@ public class graphs {
                             .build();
                     chart.getStyler().setDatePattern("dd-MMM-yyyy");
                     chart.getStyler().setXAxisMin(ninetyDaysAgo.toEpochMilli() * 1.0);
-                    chart.getStyler().setYAxisMax(4.0);
+                    chart.getStyler().setYAxisMax(2.0);
                     chart.getStyler().setYAxisMin(0.0);
 //                    chart.getStyler().setXAxisMin(
 //                            (double) (OffsetDateTime.of(2020, 12, 15, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()
