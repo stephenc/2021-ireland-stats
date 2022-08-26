@@ -336,10 +336,11 @@ public class summary {
                 message.append("\u2022 Data not currently available" + "\n");
             }
             if (haveToday && previousLevel != null && previousLevelDate.until(summaryDate, ChronoUnit.DAYS) > 7) {
-                message.append(String.format("\u2022 Occupancy has been at or above %d for %d days since %s%n",
-                        previousLevel.currentConfirmedCovidPositive,
+                message.append(String.format(
+                        "%nNOTE: Occupancy is now the lowest it has been for %d days since %s when it was %d%n",
                         previousLevelDate.until(summaryDate, ChronoUnit.DAYS),
-                        summaryDate
+                        summaryDate,
+                        previousLevel.currentConfirmedCovidPositive
                 ));
             }
         }
@@ -420,10 +421,10 @@ public class summary {
                 message.append("\u2022 Data not currently available" + "\n");
             }
             if (haveToday && previousLevel != null && previousLevelDate.until(summaryDate, ChronoUnit.DAYS) > 7) {
-                message.append(String.format("\u2022 Occupancy has been at or above %d for %d days since %s%n",
-                        previousLevel.currentConfirmedCovidPositive,
+                message.append(String.format("%nNOTE: Occupancy is now the lowest it has been for %d days since %s when it was %d%n",
                         previousLevelDate.until(summaryDate, ChronoUnit.DAYS),
-                        summaryDate
+                        summaryDate,
+                        previousLevel.currentConfirmedCovidPositive
                 ));
             }
             if (tweeting) {
