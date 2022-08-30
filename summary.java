@@ -339,7 +339,7 @@ public class summary {
                 message.append(String.format(
                         "%nNOTE: Occupancy is now the lowest it has been for %d days since %s when it was %d%n",
                         previousLevelDate.until(summaryDate, ChronoUnit.DAYS),
-                        summaryDate,
+                        previousLevelDate,
                         previousLevel.currentConfirmedCovidPositive
                 ));
             }
@@ -423,7 +423,7 @@ public class summary {
             if (haveToday && previousLevel != null && previousLevelDate.until(summaryDate, ChronoUnit.DAYS) > 7) {
                 message.append(String.format("%nNOTE: Occupancy is now the lowest it has been for %d days since %s when it was %d%n",
                         previousLevelDate.until(summaryDate, ChronoUnit.DAYS),
-                        summaryDate,
+                        previousLevelDate,
                         previousLevel.currentConfirmedCovidPositive
                 ));
             }
