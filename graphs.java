@@ -1042,7 +1042,7 @@ public class graphs {
                         })
                         .orElseGet(() -> {
                             if (guessAntigen && firstAntigen.getTime() < timestamp.getTime()) {
-                                return trendGuessing
+                                return trendGuessing && antigenRatio[0] != null
                                         ? Math.round(antigenRatio[0] * pcrPositives)
                                         : Math.round(pcrPositives / FRACTION_OVER_40_YEARS_OLD
                                                 * FRACTION_UNDER_40_YEARS_OLD);
@@ -1131,7 +1131,7 @@ public class graphs {
                             })
                             .orElseGet(() -> {
                                 if (guessAntigen && firstAntigen.getTime() < timestamp.getTime()) {
-                                    return trendGuessing
+                                    return trendGuessing && antigenRatio[0] != null
                                             ? Math.round(antigenRatio[0] * pcrPositives)
                                             : Math.round(pcrPositives / FRACTION_OVER_40_YEARS_OLD
                                                     * FRACTION_UNDER_40_YEARS_OLD);
