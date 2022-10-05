@@ -1,1 +1,1 @@
-{"errors":[{"title":"Resource Not Found","status":404,"message":"Resource not found"}],"meta":{}}
+{"errors":{"title":"Resource Not Found","status":404,"message":"The requested resource was not found."},"meta":{}}
