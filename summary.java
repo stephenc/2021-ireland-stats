@@ -335,12 +335,12 @@ public class summary {
                         } else {
                             message.append("less ");
                         }
-                        message.append(String.format("than (P<0.05) the average of the past %d days: %.2f±%.2f ",
+                        message.append(String.format("than (P<0.05) prev %d days: %.2f±%.2f ",
                                 pcrPositiveCountHistory.size(), xm, xs));
                     } else {
                         message.append(String.format(
-                                "\u2022 PCR positives at %d: not statistically different ", x));
-                        message.append(String.format("than (P<0.05) the average of the past %d days: %.1f±%.1f ",
+                                "\u2022 PCR positives %d: not statistically different ", x));
+                        message.append(String.format("than (P<0.05) prev %d days: %.1f±%.1f ",
                                 pcrPositiveCountHistory.size(), xm, xs));
                     }
                 } else {
@@ -361,12 +361,12 @@ public class summary {
                         } else {
                             message.append("less ");
                         }
-                        message.append(String.format("than the average of the past %d days: %.2f±%.2f ",
+                        message.append(String.format("than prev %d days: %.2f±%.2f ",
                                 pcrPositivityHistory.size(), xm, xs));
                     } else {
                         message.append(String.format(
-                                "\u2022 PCR positivity at %.1f%%: not statistically (P<0.05) different ", x));
-                        message.append(String.format("than the average of the past %d days: %.1f±%.1f ",
+                                "\u2022 PCR positivity %.1f%%: not statistically (P<0.05) different ", x));
+                        message.append(String.format("than prev %d days: %.1f±%.1f ",
                                 pcrPositivityHistory.size(), xm, xs));
                     }
                 } else {
@@ -507,18 +507,18 @@ public class summary {
                 if (x != null && xm != null && xs != null) {
                     double t = (x - xm) / xs;
                     if (Math.abs(t) >= T_TEST_CI90[hospitalOccupancyHistory.size()]) {
-                        message.append(String.format("\u2022 Occupancy at %d: statistically ", x));
+                        message.append(String.format("\u2022 Occupancy %d: statistically ", x));
                         if (t > 0) {
                             message.append("greater ");
                         } else {
                             message.append("less ");
                         }
-                        message.append(String.format("than (P<0.05) the average of the past %d days: %.2f±%.2f ",
+                        message.append(String.format("than (P<0.05) prev %d days: %.2f±%.2f ",
                                 hospitalOccupancyHistory.size(), xm, xs));
                     } else {
                         message.append(String.format(
-                                "\u2022 Occupancy at %d: not statistically different ", x));
-                        message.append(String.format("than (P<0.05) the average of the past %d days: %.1f±%.1f ",
+                                "\u2022 Occupancy %d: not statistically different ", x));
+                        message.append(String.format("than (P<0.05) prev %d days: %.1f±%.1f ",
                                 hospitalOccupancyHistory.size(), xm, xs));
                     }
                 } else {
@@ -533,18 +533,18 @@ public class summary {
                 if (x != null && xm != null && xs != null) {
                     double t = (x - xm) / xs;
                     if (Math.abs(t) >= T_TEST_CI90[hospitalAdmissionHistory.size()]) {
-                        message.append(String.format("\u2022 Admissions at %d: statistically ", x));
+                        message.append(String.format("\u2022 Admissions %d: statistically ", x));
                         if (t > 0) {
                             message.append("greater ");
                         } else {
                             message.append("less ");
                         }
-                        message.append(String.format("than (P<0.05) the average of the past %d days: %.2f±%.2f ",
+                        message.append(String.format("than (P<0.05) prev %d days: %.2f±%.2f ",
                                 hospitalAdmissionHistory.size(), xm, xs));
                     } else {
                         message.append(String.format(
-                                "\u2022 Admissions at %d: not statistically different ", x));
-                        message.append(String.format("than (P<0.05) the average of the past %d days: %.1f±%.1f ",
+                                "\u2022 Admissions %d: not statistically different ", x));
+                        message.append(String.format("than (P<0.05) prev %d days: %.1f±%.1f ",
                                 hospitalAdmissionHistory.size(), xm, xs));
                     }
                 } else {
@@ -552,25 +552,43 @@ public class summary {
                 }
                 message.append("\n");
             }
-           {
+        }
+
+        if (tweeting) {
+            lastTweet = sendTweet(
+                    message,
+                    lastTweet,
+                    Paths.get("graphs/COVID-19_SDU_Acute_Hospital_Time_Series_Last30.png"),
+                    Paths.get("graphs/COVID-19_SDU_Acute_Hospital_Time_Series_New_cases_breakdown.png"),
+                    Paths.get("graphs/COVID-19_SDU_Acute_Hospital_Time_Series_Summary.png")
+            );
+        }
+        message.append('\n');
+        System.out.println(message);
+        message.setLength(0);
+
+        {
+            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital General statistics " + summaryDate + " (continued)\n");
+            message.append("\n");
+            {
                 Long x = hospitalPostAdmissionHistory.getNext();
                 Double xm = hospitalPostAdmissionHistory.getMean();
                 Double xs = hospitalPostAdmissionHistory.getStdDev();
                 if (x != null && xm != null && xs != null) {
                     double t = (x - xm) / xs;
                     if (Math.abs(t) >= T_TEST_CI90[hospitalPostAdmissionHistory.size()]) {
-                        message.append(String.format("\u2022 Post admission at %d: statistically ", x));
+                        message.append(String.format("\u2022 Post admission %d: statistically ", x));
                         if (t > 0) {
                             message.append("greater ");
                         } else {
                             message.append("less ");
                         }
-                        message.append(String.format("than (P<0.05) the average of the past %d days: %.2f±%.2f ",
+                        message.append(String.format("than (P<0.05) prev %d days: %.2f±%.2f ",
                                 hospitalPostAdmissionHistory.size(), xm, xs));
                     } else {
                         message.append(String.format(
-                                "\u2022 Post admission at %d: not statistically different ", x));
-                        message.append(String.format("than (P<0.05) the average of the past %d days: %.1f±%.1f ",
+                                "\u2022 Post admission %d: not statistically different ", x));
+                        message.append(String.format("than (P<0.05) prev %d days: %.1f±%.1f ",
                                 hospitalPostAdmissionHistory.size(), xm, xs));
                     }
                 } else {
@@ -694,18 +712,18 @@ public class summary {
                     if (x != null && xm != null && xs != null) {
                         double t = (x - xm) / xs;
                         if (Math.abs(t) >= T_TEST_CI90[icuOccupancyHistory.size()]) {
-                            message.append(String.format("\u2022 Occupancy at %d: statistically ", x));
+                            message.append(String.format("\u2022 Occupancy %d: statistically ", x));
                             if (t > 0) {
                                 message.append("greater ");
                             } else {
                                 message.append("less ");
                             }
-                            message.append(String.format("than (P<0.05) the average of the past %d days: %.2f±%.2f ",
+                            message.append(String.format("than (P<0.05) of prev %d days: %.2f±%.2f ",
                                     icuOccupancyHistory.size(), xm, xs));
                         } else {
                             message.append(String.format(
-                                    "\u2022 Occupancy at %d: not statistically different ", x));
-                            message.append(String.format("than (P<0.05) the average of the past %d days: %.1f±%.1f ",
+                                    "\u2022 Occupancy %d: not statistically different ", x));
+                            message.append(String.format("than (P<0.05) of prev %d days: %.1f±%.1f ",
                                     icuOccupancyHistory.size(), xm, xs));
                         }
                     } else {
@@ -720,18 +738,18 @@ public class summary {
                     if (x != null && xm != null && xs != null) {
                         double t = (x - xm) / xs;
                         if (Math.abs(t) >= T_TEST_CI90[icuAdmissionHistory.size()]) {
-                            message.append(String.format("\u2022 Admissions at %d: statistically ", x));
+                            message.append(String.format("\u2022 Admissions %d: statistically ", x));
                             if (t > 0) {
                                 message.append("greater ");
                             } else {
                                 message.append("less ");
                             }
-                            message.append(String.format("than (P<0.05) the average of the past %d days: %.2f±%.2f ",
+                            message.append(String.format("than (P<0.05) of prev %d days: %.2f±%.2f ",
                                     icuAdmissionHistory.size(), xm, xs));
                         } else {
                             message.append(String.format(
-                                    "\u2022 Admissions at %d: not statistically different ", x));
-                            message.append(String.format("than (P<0.05) the average of the past %d days: %.1f±%.1f ",
+                                    "\u2022 Admissions %d: not statistically different ", x));
+                            message.append(String.format("than (P<0.05) of prev %d days: %.1f±%.1f ",
                                     icuAdmissionHistory.size(), xm, xs));
                         }
                     } else {
