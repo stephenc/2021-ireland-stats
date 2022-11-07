@@ -1,32 +1,22 @@
 package io.github.stephenc.visualfit;
 
-import com.fasterxml.jackson.dataformat.csv.CsvMapper;
-import com.fasterxml.jackson.dataformat.csv.CsvParser;
-import com.fasterxml.jackson.dataformat.csv.CsvSchema;
-import io.github.stephenc.visualfit.data.Antigen;
-import io.github.stephenc.visualfit.data.LabTests;
-import io.github.stephenc.visualfit.data.OWIDTesting;
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
@@ -78,8 +68,30 @@ public class VisualFit {
     private record Peak(LocalDate maximum, double height, double rate) {
     }
 
-    public VisualFit() {
+    public void show() {
+        startDate = rawDates.get(0).toInstant().atOffset(ZoneOffset.UTC);
+        endDate = rawDates.get(rawDates.size() - 1).toInstant().atOffset(ZoneOffset.UTC);
+        updateGraphs();
+
+        JFrame frame = new JFrame("VisualFit");
+
+        frame.setContentPane(root);
+        frame.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                updateGraphs();
+            }
+        });
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.pack();
+        frame.setVisible(true);
+    }
+
+    public VisualFit(List<Date> times, List<Number> values) {
         $$$setupUI$$$();
+
+        rawDates = times;
+        rawData = values;
 
         Pattern peakDef = Pattern.compile(
                 "^\\s*(\\d{4}-\\d{2}-\\d{2})\\s*,\\s*(\\d+(?:.\\d*)?)\\s*,\\s*(\\d+(?:.\\d*)?)\\s*(?:#.*)?$");
@@ -203,7 +215,9 @@ public class VisualFit {
         Map.Entry<LocalDate, Double> previousBaseline =
                 baseline.hasNext() ? baseline.next() : new AbstractMap.SimpleImmutableEntry<>(LocalDate.MIN, 0.0);
         Map.Entry<LocalDate, Double> nextBaseline =
-                baseline.hasNext() ? baseline.next() : new AbstractMap.SimpleImmutableEntry<>(LocalDate.MAX, previousBaseline.getValue());
+                baseline.hasNext()
+                        ? baseline.next()
+                        : new AbstractMap.SimpleImmutableEntry<>(LocalDate.MAX, previousBaseline.getValue());
 
         {
             var i = startDate;
@@ -371,15 +385,14 @@ public class VisualFit {
     }
 
     private void rescaleAndPaintChartPanel(XChartPanel<MyXYChart> p) {
+        p.getChart().setWidth(graphs.getVisibleRect().width / 2);
+        p.getChart().setHeight(graphs.getVisibleRect().height / 2);
         p.getChart().getStyler().setXAxisMin((double) (startDate.toInstant().toEpochMilli()));
         p.getChart().getStyler().setXAxisMax((double) (endDate.toInstant().toEpochMilli()));
-        p.repaint();
-    }
-
-    private static Date parseTimestamp(String v1) {
-        return new Date(
-                OffsetDateTime.parse(v1.replace('/', '-').replace(' ', 'T').replace("+00", "Z"))
-                        .toInstant().toEpochMilli());
+        p.setSize(new Dimension(p.getChart().getWidth(), p.getChart().getHeight()));
+        p.setPreferredSize(new Dimension(p.getChart().getWidth(), p.getChart().getHeight()));
+        graphs.revalidate();
+        graphs.repaint();
     }
 
     public static List<Number> replaceNulls(List<? extends Number> y, Number replacement) {
@@ -441,149 +454,6 @@ public class VisualFit {
         return result;
     }
 
-    public static void main(String[] args) throws IOException {
-        var visualFit = new VisualFit();
-
-        if (args.length == 0 || "irl".equalsIgnoreCase(args[0]) || "irl-pcr".equalsIgnoreCase(args[0]) || "irl-ant".equalsIgnoreCase(args[0])) {
-            CsvMapper csvMapper = new CsvMapper();
-            CsvSchema schema = CsvSchema.emptySchema().withHeader();
-            var antigenWeight = "irl-pcr".equalsIgnoreCase(args[0]) ? 0 : 1;
-            var pcrWeight = "irl-ant".equalsIgnoreCase(args[0]) ? 0 : 1;
-            var estimateAntigen = !"irl-ant".equalsIgnoreCase(args[0]);
-
-            List<LabTests> labTests = csvMapper.readerFor(LabTests.class)
-                    .with(schema)
-                    .<LabTests>readValues(
-                            Paths.get("../data/COVID-19_Laboratory_Testing_Time_Series.csv").toFile()).readAll();
-
-            labTests.sort(Comparator.comparing(r -> r.timestamp));
-
-            List<Antigen> antigens = csvMapper.readerFor(Antigen.class)
-                    .with(schema)
-                    .<Antigen>readValues(
-                            Paths.get("../data/COVID-19_Antigen.csv").toFile()).readAll();
-
-            antigens.sort(Comparator.comparing(r -> r.timestamp));
-
-
-            {
-                Date firstAntigen = parseTimestamp(antigens.get(0).timestamp);
-                List<Date> times = new ArrayList<>(labTests.size());
-                List<Number> values = new ArrayList<>(labTests.size());
-                LabTests[] previous = new LabTests[1];
-                Double[] antigenRatio = new Double[1];
-                Predictor predictor = new Predictor();
-                labTests.forEach(r -> {
-                    Date timestamp = parseTimestamp(r.timestamp);
-                    times.add(timestamp);
-                    long pcrPositives = r.totalPositives - (previous[0] == null ? 0 : previous[0].totalPositives);
-                    long antigenPositives = antigens.stream()
-                            .filter(x -> parseTimestamp(x.timestamp).toInstant()
-                                    .atOffset(ZoneOffset.UTC).toLocalDate()
-                                    .equals(timestamp.toInstant().atOffset(ZoneOffset.UTC)
-                                            .toLocalDate()))
-                            .map(x -> x.positives)
-                            .findAny()
-                            .map(p -> {
-                                if (pcrPositives > 0) {
-                                    antigenRatio[0] = antigenRatio[0] == null
-                                            ? p / pcrPositives
-                                            : 0.9 * antigenRatio[0] + 0.1 * p / pcrPositives;
-                                    predictor.train(
-                                            timestamp.toInstant().atOffset(ZoneOffset.UTC).get(ChronoField.DAY_OF_WEEK),
-                                            pcrPositives, p);
-                                }
-                                return p;
-                            })
-                            .orElseGet(() -> {
-                                if (estimateAntigen && firstAntigen.getTime() < timestamp.getTime()) {
-                                    var predicted = Math.round(predictor.guess(
-                                            timestamp.toInstant().atOffset(ZoneOffset.UTC).get(ChronoField.DAY_OF_WEEK),
-                                            pcrPositives)
-                                    );
-                                    var estimated = Math.round(antigenRatio[0] * pcrPositives);
-                                    System.out.printf("%s predicted = %d estimated = %d%n", timestamp, predicted,
-                                            estimated);
-                                    return estimated;
-                                } else {
-                                    return 0L;
-                                }
-                            });
-                    if (!estimateAntigen && antigenPositives == 0L) {
-                        times.remove(values.size());
-                    } else {
-                        values.add(pcrWeight * pcrPositives + antigenWeight * antigenPositives);
-                    }
-                    previous[0] = r;
-                });
-                System.out.println(predictor);
-                visualFit.rawDates = times;
-                visualFit.rawData = values;
-            }
-        } else if ("0".equals(args[0])) {
-            List<Date> times = new ArrayList<>();
-            List<Number> values = new ArrayList<>();
-            for (int i = 0; i < 365; i++) {
-                times.add(new Date(
-                        LocalDate.of(2022, 1, 1).plusDays(i).atStartOfDay().atOffset(ZoneOffset.UTC).toInstant()
-                                .toEpochMilli()));
-                values.add(
-                        10000 * (Math.exp(-Math.exp((-0.05 * (i - 180)))) - Math.exp(-Math.exp((-0.05 * (i - 181))))));
-            }
-            visualFit.rawDates = times;
-            visualFit.rawData = values;
-        } else if (args[0].toLowerCase(Locale.ROOT).endsWith(".csv") && Files.exists(Paths.get(args[0]))) {
-            CsvMapper csvMapper = new CsvMapper();
-            List<List<String>> data = csvMapper.readerForListOf(String.class)
-                    .with(CsvParser.Feature.WRAP_AS_ARRAY)
-                    .<List<String>>readValues(Paths.get(args[0]).toFile()).readAll();
-            List<Date> times = new ArrayList<>();
-            List<Number> values = new ArrayList<>();
-            data.forEach(r -> {
-                try {
-                    Date timestamp = parseTimestamp(r.get(0) + " 00:00:00+00");
-                    times.add(timestamp);
-                    values.add(Double.valueOf(r.get(1)));
-                } catch (DateTimeParseException e) {
-                    e.printStackTrace();
-                }
-            });
-            visualFit.rawDates = times;
-            visualFit.rawData = values;
-
-        } else {
-            CsvMapper csvMapper = new CsvMapper();
-            CsvSchema schema = CsvSchema.emptySchema().withHeader();
-            List<OWIDTesting> tests = csvMapper.readerFor(OWIDTesting.class)
-                    .with(schema)
-                    .<OWIDTesting>readValues(
-                            Paths.get("covid-testing-all-observations.csv").toFile()).readAll();
-            tests.removeIf(r -> !args[0].equalsIgnoreCase(r.iso));
-            tests.sort(Comparator.comparing(r -> r.timestamp));
-            List<Date> times = new ArrayList<>();
-            List<Number> values = new ArrayList<>();
-            tests.forEach(r -> {
-                Date timestamp = parseTimestamp(r.timestamp + " 00:00:00+00");
-                times.add(timestamp);
-                values.add(r.daily);
-            });
-            visualFit.rawDates = times;
-            visualFit.rawData = values;
-        }
-
-        visualFit.startDate = visualFit.rawDates.get(0).toInstant().atOffset(ZoneOffset.UTC);
-        visualFit.endDate = visualFit.rawDates.get(visualFit.rawDates.size() - 1).toInstant().atOffset(ZoneOffset.UTC);
-        visualFit.updateGraphs();
-
-        JFrame frame = new JFrame("VisualFit");
-
-        frame.setContentPane(visualFit.root);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.pack();
-        frame.setVisible(true);
-
-    }
-
     public void createUIComponents() {
         smoothed = new XChartPanel<>(newChart("Smoothed", "Number of Positive samples tested", null));
         raw = new XChartPanel<>(newChart("Raw", "Number of Positive samples tested", null));
@@ -592,7 +462,7 @@ public class VisualFit {
     }
 
     private MyXYChart newChart(String chartTitle, String yAxisTitle, Double yAxisMax) {
-        var smoothed = new MyXYChartBuilder()
+        var chart = new MyXYChartBuilder()
                 .width(940)
                 .height(480)
                 .theme(Styler.ChartTheme.Matlab)
@@ -600,14 +470,15 @@ public class VisualFit {
                 .yAxisTitle(yAxisTitle)
                 .title(chartTitle)
                 .build();
-        smoothed.getStyler().setDatePattern("dd-MMM-yyyy");
-        smoothed.getStyler().setXAxisMin((double) (START_DATE.toInstant().toEpochMilli()));
-        smoothed.getStyler().setXAxisMax((double) (END_DATE.toInstant().toEpochMilli()));
+        chart.getStyler().setDatePattern("dd-MMM-yyyy");
+        chart.getStyler().setXAxisMin((double) (START_DATE.toInstant().toEpochMilli()));
+        chart.getStyler().setXAxisMax((double) (END_DATE.toInstant().toEpochMilli()));
         if (yAxisMax != null) {
-            smoothed.getStyler().setYAxisMax(yAxisMax);
-            smoothed.getStyler().setYAxisMin(-500.0);
+            chart.getStyler().setYAxisMax(yAxisMax);
+            chart.getStyler().setYAxisMin(-500.0);
         }
-        return (MyXYChart) smoothed;
+        chart.getStyler().setCursorEnabled(true);
+        return (MyXYChart) chart;
     }
 
     public static class MyXYChart extends XYChart {
@@ -629,6 +500,16 @@ public class VisualFit {
 
         public void clearAnnotations() {
             annotations.clear();
+        }
+
+        @Override
+        protected void setWidth(int width) {
+            super.setWidth(width);
+        }
+
+        @Override
+        protected void setHeight(int height) {
+            super.setHeight(height);
         }
     }
 

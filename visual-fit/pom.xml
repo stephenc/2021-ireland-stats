@@ -42,6 +42,11 @@
       <artifactId>xchart</artifactId>
       <version>3.8.1</version>
     </dependency>
+    <dependency>
+      <groupId>info.picocli</groupId>
+      <artifactId>picocli</artifactId>
+      <version>4.7.0</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -55,6 +60,16 @@
         <version>3.10.1</version>
         <configuration>
           <release>17</release>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>info.picocli</groupId>
+              <artifactId>picocli-codegen</artifactId>
+              <version>4.7.0</version>
+            </path>
+          </annotationProcessorPaths>
+          <compilerArgs>
+            <arg>-Aproject=${project.groupId}/${project.artifactId}</arg>
+          </compilerArgs>
         </configuration>
       </plugin>
       <plugin>
@@ -80,7 +95,7 @@
         <configuration>
           <programs>
             <program>
-              <mainClass>io.github.stephenc.visualfit.VisualFit</mainClass>
+              <mainClass>io.github.stephenc.visualfit.Main</mainClass>
               <id>visual-fit</id>
             </program>
           </programs>
