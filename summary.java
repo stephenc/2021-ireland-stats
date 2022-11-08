@@ -129,6 +129,7 @@ public class summary {
         StringBuffer message = new StringBuffer();
         Recent<Double> pcrPositivityHistory = new Recent<>(30);
         Recent<Long> pcrPositiveCountHistory = new Recent<>(30);
+        boolean canDoStats = false;
         {
             Long pcrCount = null;
             Long pcrPrevCount = null;
@@ -224,6 +225,7 @@ public class summary {
                 message.append('\n');
                 pcrCount = current == null || previous == null ? null : currentPositives;
                 pcrPrevCount = previous == null || ref == null ? null : previous.totalPositives - ref.totalPositives;
+                canDoStats = haveToday;
             }
 
             Long antigenCount = null;
@@ -319,72 +321,75 @@ public class summary {
         System.out.println(message);
         message.setLength(0);
 
-        {
-            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  PCR lab tests statistics (P<0.05) " + summaryDate + "\n");
-            message.append("\n");
+        if (canDoStats) {
             {
-                Long x = pcrPositiveCountHistory.getNext();
-                Double xm = pcrPositiveCountHistory.getMean();
-                Double xs = pcrPositiveCountHistory.getStdDev();
-                if (x != null && xm != null && xs != null) {
-                    double t = (x - xm) / xs;
-                    if (Math.abs(t) >= T_TEST_CI90[pcrPositiveCountHistory.size()]) {
-                        message.append(String.format("\u2022 PCR positives at %d: statistically ", x));
-                        if (t > 0) {
-                            message.append("greater ");
-                        } else {
-                            message.append("less ");
-                        }
-                        message.append(String.format("than prev %d days: %.2f±%.2f ",
-                                pcrPositiveCountHistory.size(), xm, xs));
-                    } else {
-                        message.append(String.format(
-                                "\u2022 PCR positives %d: not statistically different ", x));
-                        message.append(String.format("than prev %d days: %.1f±%.1f ",
-                                pcrPositiveCountHistory.size(), xm, xs));
-                    }
-                } else {
-                    message.append("\u2022 Insufficient data to analyse PCR positives");
-                }
+                message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  PCR lab tests statistics (P<0.05) " + summaryDate + "\n");
                 message.append("\n");
-            }
-            {
-                Double x = pcrPositivityHistory.getNext();
-                Double xm = pcrPositivityHistory.getMean();
-                Double xs = pcrPositivityHistory.getStdDev();
-                if (x != null && xm != null && xs != null) {
-                    double t = (x - xm) / xs;
-                    if (Math.abs(t) >= T_TEST_CI90[pcrPositivityHistory.size()]) {
-                        message.append(String.format("\u2022 PCR positivity at %.1f%%: statistically ", x));
-                        if (t > 0) {
-                            message.append("greater ");
+                {
+                    Long x = pcrPositiveCountHistory.getNext();
+                    Double xm = pcrPositiveCountHistory.getMean();
+                    Double xs = pcrPositiveCountHistory.getStdDev();
+                    if (x != null && xm != null && xs != null) {
+                        double t = (x - xm) / xs;
+                        if (Math.abs(t) >= T_TEST_CI90[pcrPositiveCountHistory.size()]) {
+                            message.append(String.format("\u2022 PCR positives at %d: statistically ", x));
+                            if (t > 0) {
+                                message.append("greater ");
+                            } else {
+                                message.append("less ");
+                            }
+                            message.append(String.format("than prev %d days: %.2f±%.2f ",
+                                    pcrPositiveCountHistory.size(), xm, xs));
                         } else {
-                            message.append("less ");
+                            message.append(String.format(
+                                    "\u2022 PCR positives %d: not statistically different ", x));
+                            message.append(String.format("than prev %d days: %.1f±%.1f ",
+                                    pcrPositiveCountHistory.size(), xm, xs));
                         }
-                        message.append(String.format("than prev %d days: %.2f±%.2f ",
-                                pcrPositivityHistory.size(), xm, xs));
                     } else {
-                        message.append(String.format(
-                                "\u2022 PCR positivity %.1f%%: not statistically different ", x));
-                        message.append(String.format("than prev %d days: %.1f±%.1f ",
-                                pcrPositivityHistory.size(), xm, xs));
+                        message.append("\u2022 Insufficient data to analyse PCR positives");
                     }
-                } else {
-                    message.append("\u2022 Insufficient data to analyse PCR positivity");
+                    message.append("\n");
+                }
+                {
+                    Double x = pcrPositivityHistory.getNext();
+                    Double xm = pcrPositivityHistory.getMean();
+                    Double xs = pcrPositivityHistory.getStdDev();
+                    if (x != null && xm != null && xs != null) {
+                        double t = (x - xm) / xs;
+                        if (Math.abs(t) >= T_TEST_CI90[pcrPositivityHistory.size()]) {
+                            message.append(String.format("\u2022 PCR positivity at %.1f%%: statistically ", x));
+                            if (t > 0) {
+                                message.append("greater ");
+                            } else {
+                                message.append("less ");
+                            }
+                            message.append(String.format("than prev %d days: %.2f±%.2f ",
+                                    pcrPositivityHistory.size(), xm, xs));
+                        } else {
+                            message.append(String.format(
+                                    "\u2022 PCR positivity %.1f%%: not statistically different ", x));
+                            message.append(String.format("than prev %d days: %.1f±%.1f ",
+                                    pcrPositivityHistory.size(), xm, xs));
+                        }
+                    } else {
+                        message.append("\u2022 Insufficient data to analyse PCR positivity");
+                    }
                 }
             }
+
+            if (tweeting) {
+                lastTweet = sendTweet(
+                        message,
+                        lastTweet
+                );
+            }
+            message.append('\n');
+            System.out.println(message);
+            message.setLength(0);
         }
 
-        if (tweeting) {
-            lastTweet = sendTweet(
-                    message,
-                    lastTweet
-            );
-        }
-        message.append('\n');
-        System.out.println(message);
-        message.setLength(0);
-
+        canDoStats = false;
         Recent<Long> hospitalOccupancyHistory = new Recent<>(30);
         Recent<Long> hospitalAdmissionHistory = new Recent<>(30);
         Recent<Long> hospitalPostAdmissionHistory = new Recent<>(30);
@@ -482,6 +487,7 @@ public class summary {
                         previousLevel.currentConfirmedCovidPositive
                 ));
             }
+            canDoStats = haveToday;
         }
 
         if (tweeting) {
@@ -497,114 +503,117 @@ public class summary {
         System.out.println(message);
         message.setLength(0);
 
-        {
-            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital General statistics (P<0.05) " + summaryDate + "\n");
-            message.append("\n");
+        if (canDoStats) {
             {
-                Long x = hospitalOccupancyHistory.getNext();
-                Double xm = hospitalOccupancyHistory.getMean();
-                Double xs = hospitalOccupancyHistory.getStdDev();
-                if (x != null && xm != null && xs != null) {
-                    double t = (x - xm) / xs;
-                    if (Math.abs(t) >= T_TEST_CI90[hospitalOccupancyHistory.size()]) {
-                        message.append(String.format("\u2022 Occupancy %d: statistically ", x));
-                        if (t > 0) {
-                            message.append("greater ");
-                        } else {
-                            message.append("less ");
-                        }
-                        message.append(String.format("than prev %d days: %.2f±%.2f ",
-                                hospitalOccupancyHistory.size(), xm, xs));
-                    } else {
-                        message.append(String.format(
-                                "\u2022 Occupancy %d: not statistically different ", x));
-                        message.append(String.format("than prev %d days: %.1f±%.1f ",
-                                hospitalOccupancyHistory.size(), xm, xs));
-                    }
-                } else {
-                    message.append("\u2022 Insufficient data to analyse Occupancy");
-                }
+                message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital General statistics (P<0.05) " + summaryDate + "\n");
                 message.append("\n");
-            }
-           {
-                Long x = hospitalAdmissionHistory.getNext();
-                Double xm = hospitalAdmissionHistory.getMean();
-                Double xs = hospitalAdmissionHistory.getStdDev();
-                if (x != null && xm != null && xs != null) {
-                    double t = (x - xm) / xs;
-                    if (Math.abs(t) >= T_TEST_CI90[hospitalAdmissionHistory.size()]) {
-                        message.append(String.format("\u2022 Admissions %d: statistically ", x));
-                        if (t > 0) {
-                            message.append("greater ");
+                {
+                    Long x = hospitalOccupancyHistory.getNext();
+                    Double xm = hospitalOccupancyHistory.getMean();
+                    Double xs = hospitalOccupancyHistory.getStdDev();
+                    if (x != null && xm != null && xs != null) {
+                        double t = (x - xm) / xs;
+                        if (Math.abs(t) >= T_TEST_CI90[hospitalOccupancyHistory.size()]) {
+                            message.append(String.format("\u2022 Occupancy %d: statistically ", x));
+                            if (t > 0) {
+                                message.append("greater ");
+                            } else {
+                                message.append("less ");
+                            }
+                            message.append(String.format("than prev %d days: %.2f±%.2f ",
+                                    hospitalOccupancyHistory.size(), xm, xs));
                         } else {
-                            message.append("less ");
+                            message.append(String.format(
+                                    "\u2022 Occupancy %d: not statistically different ", x));
+                            message.append(String.format("than prev %d days: %.1f±%.1f ",
+                                    hospitalOccupancyHistory.size(), xm, xs));
                         }
-                        message.append(String.format("than prev %d days: %.2f±%.2f ",
-                                hospitalAdmissionHistory.size(), xm, xs));
                     } else {
-                        message.append(String.format(
-                                "\u2022 Admissions %d: not statistically different ", x));
-                        message.append(String.format("than prev %d days: %.1f±%.1f ",
-                                hospitalAdmissionHistory.size(), xm, xs));
+                        message.append("\u2022 Insufficient data to analyse Occupancy");
                     }
-                } else {
-                    message.append("\u2022 Insufficient data to analyse Admissions");
+                    message.append("\n");
                 }
-                message.append("\n");
+               {
+                    Long x = hospitalAdmissionHistory.getNext();
+                    Double xm = hospitalAdmissionHistory.getMean();
+                    Double xs = hospitalAdmissionHistory.getStdDev();
+                    if (x != null && xm != null && xs != null) {
+                        double t = (x - xm) / xs;
+                        if (Math.abs(t) >= T_TEST_CI90[hospitalAdmissionHistory.size()]) {
+                            message.append(String.format("\u2022 Admissions %d: statistically ", x));
+                            if (t > 0) {
+                                message.append("greater ");
+                            } else {
+                                message.append("less ");
+                            }
+                            message.append(String.format("than prev %d days: %.2f±%.2f ",
+                                    hospitalAdmissionHistory.size(), xm, xs));
+                        } else {
+                            message.append(String.format(
+                                    "\u2022 Admissions %d: not statistically different ", x));
+                            message.append(String.format("than prev %d days: %.1f±%.1f ",
+                                    hospitalAdmissionHistory.size(), xm, xs));
+                        }
+                    } else {
+                        message.append("\u2022 Insufficient data to analyse Admissions");
+                    }
+                    message.append("\n");
+                }
             }
-        }
 
-        if (tweeting) {
-            lastTweet = sendTweet(
-                    message,
-                    lastTweet
-            );
-        }
-        message.append('\n');
-        System.out.println(message);
-        message.setLength(0);
+            if (tweeting) {
+                lastTweet = sendTweet(
+                        message,
+                        lastTweet
+                );
+            }
+            message.append('\n');
+            System.out.println(message);
+            message.setLength(0);
 
-        {
-            message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital General statistics (P<0.05) " + summaryDate + " (continued)\n");
-            message.append("\n");
             {
-                Long x = hospitalPostAdmissionHistory.getNext();
-                Double xm = hospitalPostAdmissionHistory.getMean();
-                Double xs = hospitalPostAdmissionHistory.getStdDev();
-                if (x != null && xm != null && xs != null) {
-                    double t = (x - xm) / xs;
-                    if (Math.abs(t) >= T_TEST_CI90[hospitalPostAdmissionHistory.size()]) {
-                        message.append(String.format("\u2022 Post admission %d: statistically ", x));
-                        if (t > 0) {
-                            message.append("greater ");
-                        } else {
-                            message.append("less ");
-                        }
-                        message.append(String.format("than prev %d days: %.2f±%.2f ",
-                                hospitalPostAdmissionHistory.size(), xm, xs));
-                    } else {
-                        message.append(String.format(
-                                "\u2022 Post admission %d: not statistically different ", x));
-                        message.append(String.format("than prev %d days: %.1f±%.1f ",
-                                hospitalPostAdmissionHistory.size(), xm, xs));
-                    }
-                } else {
-                    message.append("\u2022 Insufficient data to analyse Post admission");
-                }
+                message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital General statistics (P<0.05) " + summaryDate + " (continued)\n");
                 message.append("\n");
+                {
+                    Long x = hospitalPostAdmissionHistory.getNext();
+                    Double xm = hospitalPostAdmissionHistory.getMean();
+                    Double xs = hospitalPostAdmissionHistory.getStdDev();
+                    if (x != null && xm != null && xs != null) {
+                        double t = (x - xm) / xs;
+                        if (Math.abs(t) >= T_TEST_CI90[hospitalPostAdmissionHistory.size()]) {
+                            message.append(String.format("\u2022 Post admission %d: statistically ", x));
+                            if (t > 0) {
+                                message.append("greater ");
+                            } else {
+                                message.append("less ");
+                            }
+                            message.append(String.format("than prev %d days: %.2f±%.2f ",
+                                    hospitalPostAdmissionHistory.size(), xm, xs));
+                        } else {
+                            message.append(String.format(
+                                    "\u2022 Post admission %d: not statistically different ", x));
+                            message.append(String.format("than prev %d days: %.1f±%.1f ",
+                                    hospitalPostAdmissionHistory.size(), xm, xs));
+                        }
+                    } else {
+                        message.append("\u2022 Insufficient data to analyse Post admission");
+                    }
+                    message.append("\n");
+                }
             }
+
+            if (tweeting) {
+                lastTweet = sendTweet(
+                        message,
+                        lastTweet
+                );
+            }
+            message.append('\n');
+            System.out.println(message);
+            message.setLength(0);
         }
 
-        if (tweeting) {
-            lastTweet = sendTweet(
-                    message,
-                    lastTweet
-            );
-        }
-        message.append('\n');
-        System.out.println(message);
-        message.setLength(0);
-
+        canDoStats = false;
         Recent<Long> icuOccupancyHistory = new Recent<>(30);
         Recent<Long> icuAdmissionHistory = new Recent<>(30);
         {
@@ -686,6 +695,8 @@ public class summary {
                         previousLevel.currentConfirmedCovidPositive
                 ));
             }
+
+            canDoStats = haveToday;
             if (tweeting) {
                 lastTweet = sendTweet(
                         message,
@@ -697,74 +708,75 @@ public class summary {
             message.append('\n');
             System.out.println(message);
             message.setLength(0);
-
-            {
-                message.append(
-                        "Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital ICU statistics (P<0.05) " + summaryDate + "\n");
-                message.append("\n");
+            if (canDoStats) {
                 {
-                    Long x = icuOccupancyHistory.getNext();
-                    Double xm = icuOccupancyHistory.getMean();
-                    Double xs = icuOccupancyHistory.getStdDev();
-                    if (x != null && xm != null && xs != null) {
-                        double t = (x - xm) / xs;
-                        if (Math.abs(t) >= T_TEST_CI90[icuOccupancyHistory.size()]) {
-                            message.append(String.format("\u2022 Occupancy %d: statistically ", x));
-                            if (t > 0) {
-                                message.append("greater ");
-                            } else {
-                                message.append("less ");
-                            }
-                            message.append(String.format("than prev %d days: %.2f±%.2f ",
-                                    icuOccupancyHistory.size(), xm, xs));
-                        } else {
-                            message.append(String.format(
-                                    "\u2022 Occupancy %d: not statistically different ", x));
-                            message.append(String.format("than prev %d days: %.1f±%.1f ",
-                                    icuOccupancyHistory.size(), xm, xs));
-                        }
-                    } else {
-                        message.append("\u2022 Insufficient data to analyse Occupancy");
-                    }
+                    message.append(
+                            "Ireland \uD83C\uDDEE\uD83C\uDDEA  Covid Hospital ICU statistics (P<0.05) " + summaryDate + "\n");
                     message.append("\n");
-                }
-                {
-                    Long x = icuAdmissionHistory.getNext();
-                    Double xm = icuAdmissionHistory.getMean();
-                    Double xs = icuAdmissionHistory.getStdDev();
-                    if (x != null && xm != null && xs != null) {
-                        double t = (x - xm) / xs;
-                        if (Math.abs(t) >= T_TEST_CI90[icuAdmissionHistory.size()]) {
-                            message.append(String.format("\u2022 Admissions %d: statistically ", x));
-                            if (t > 0) {
-                                message.append("greater ");
+                    {
+                        Long x = icuOccupancyHistory.getNext();
+                        Double xm = icuOccupancyHistory.getMean();
+                        Double xs = icuOccupancyHistory.getStdDev();
+                        if (x != null && xm != null && xs != null) {
+                            double t = (x - xm) / xs;
+                            if (Math.abs(t) >= T_TEST_CI90[icuOccupancyHistory.size()]) {
+                                message.append(String.format("\u2022 Occupancy %d: statistically ", x));
+                                if (t > 0) {
+                                    message.append("greater ");
+                                } else {
+                                    message.append("less ");
+                                }
+                                message.append(String.format("than prev %d days: %.2f±%.2f ",
+                                        icuOccupancyHistory.size(), xm, xs));
                             } else {
-                                message.append("less ");
+                                message.append(String.format(
+                                        "\u2022 Occupancy %d: not statistically different ", x));
+                                message.append(String.format("than prev %d days: %.1f±%.1f ",
+                                        icuOccupancyHistory.size(), xm, xs));
                             }
-                            message.append(String.format("than prev %d days: %.2f±%.2f ",
-                                    icuAdmissionHistory.size(), xm, xs));
                         } else {
-                            message.append(String.format(
-                                    "\u2022 Admissions %d: not statistically different ", x));
-                            message.append(String.format("than prev %d days: %.1f±%.1f ",
-                                    icuAdmissionHistory.size(), xm, xs));
+                            message.append("\u2022 Insufficient data to analyse Occupancy");
                         }
-                    } else {
-                        message.append("\u2022 Insufficient data to analyse Admissions");
+                        message.append("\n");
                     }
-                    message.append("\n");
+                    {
+                        Long x = icuAdmissionHistory.getNext();
+                        Double xm = icuAdmissionHistory.getMean();
+                        Double xs = icuAdmissionHistory.getStdDev();
+                        if (x != null && xm != null && xs != null) {
+                            double t = (x - xm) / xs;
+                            if (Math.abs(t) >= T_TEST_CI90[icuAdmissionHistory.size()]) {
+                                message.append(String.format("\u2022 Admissions %d: statistically ", x));
+                                if (t > 0) {
+                                    message.append("greater ");
+                                } else {
+                                    message.append("less ");
+                                }
+                                message.append(String.format("than prev %d days: %.2f±%.2f ",
+                                        icuAdmissionHistory.size(), xm, xs));
+                            } else {
+                                message.append(String.format(
+                                        "\u2022 Admissions %d: not statistically different ", x));
+                                message.append(String.format("than prev %d days: %.1f±%.1f ",
+                                        icuAdmissionHistory.size(), xm, xs));
+                            }
+                        } else {
+                            message.append("\u2022 Insufficient data to analyse Admissions");
+                        }
+                        message.append("\n");
+                    }
                 }
-            }
 
-            if (tweeting) {
-                lastTweet = sendTweet(
-                        message,
-                        lastTweet
-                );
+                if (tweeting) {
+                    lastTweet = sendTweet(
+                            message,
+                            lastTweet
+                    );
+                }
+                message.append('\n');
+                System.out.println(message);
+                message.setLength(0);
             }
-            message.append('\n');
-            System.out.println(message);
-            message.setLength(0);
             message.append("Ireland \uD83C\uDDEE\uD83C\uDDEA  % PCR Positive Analysis " + summaryDate + "\n");
             if (tweeting) {
                 message.append("\n(Automated tweet any analysis will follow later)");
