@@ -24,13 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
-    - name: Upgrade cURL
-      # need at least 7.71 to handle etags correctly from dodgy servers
-      run: |
-        curl -o curl.deb 'http://ftp.us.debian.org/debian/pool/main/c/curl/curl_7.85.0-1~bpo11+1_amd64.deb'
-        curl -o libcurl4.deb 'http://ftp.debian.org/debian/pool/main/c/curl/libcurl4_7.85.0-1~bpo11+1_amd64.deb'
-        sudo dpkg -i libcurl4.deb curl.deb
-        rm -f libcurl4.deb curl.deb
+    #- name: Upgrade cURL
+    #  # need at least 7.71 to handle etags correctly from dodgy servers
+    #  run: |
+    #    curl -o curl.deb 'http://ftp.us.debian.org/debian/pool/main/c/curl/curl_7.85.0-1~bpo11+1_amd64.deb'
+    #    curl -o libcurl4.deb 'http://ftp.debian.org/debian/pool/main/c/curl/libcurl4_7.85.0-1~bpo11+1_amd64.deb'
+    #    sudo dpkg -i libcurl4.deb curl.deb
+    #    rm -f libcurl4.deb curl.deb
     - name: Scrape
       run: ./scrape.sh 
     - uses: mikeal/publish-to-github-action@master
