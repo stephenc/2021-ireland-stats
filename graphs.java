@@ -2572,6 +2572,7 @@ public class graphs {
                     {
                         List<Date> times = new ArrayList<>(labTests.size());
                         List<Date> times2 = new ArrayList<>(labTests.size());
+                        List<Date> times3 = new ArrayList<>(labTests.size());
                         List<Number> values = new ArrayList<>(labTests.size());
                         List<Number> values2 = new ArrayList<>(labTests.size());
                         List<Number> values3 = new ArrayList<>(labTests.size());
@@ -2580,25 +2581,25 @@ public class graphs {
                             Date timestamp = parseTimestamp(r.timestamp);
                             times.add(timestamp);
                             times2.add(new Date(timestamp.getTime() + TimeUnit.DAYS.toMillis(365)));
+                            times3.add(new Date(timestamp.getTime() + TimeUnit.DAYS.toMillis(365*2)));
                             double value =
                                     (r.totalPositives - (previous[0] == null ? 0 : previous[0].totalPositives)) * 1.0
                                             / (
                                             r.totalLabsTotal - (previous[0] == null ? 0 : previous[0].totalLabsTotal));
                             values.add(value);
                             values2.add(value);
-                            values3.add(value * 2.7);
+                            values3.add(value);
                             previous[0] = r;
                         });
-                        chart.addSeries("This year", times, gaussianSmooth(replaceNulls(values, 0), sigma))
+                        chart.addSeries("2022-2023", times, gaussianSmooth(replaceNulls(values, 0), sigma))
                                 .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
                                 .setMarker(SeriesMarkers.NONE);
-                        chart.addSeries("Last year", times2, gaussianSmooth(replaceNulls(values2, 0), sigma))
+                        chart.addSeries("2021-2022", times2, gaussianSmooth(replaceNulls(values2, 0), sigma))
                                 .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
                                 .setMarker(SeriesMarkers.NONE);
-                        chart.addSeries("Last year x2.7", times2, gaussianSmooth(replaceNulls(values3, 0), sigma))
+                        chart.addSeries("2020-2021", times3, gaussianSmooth(replaceNulls(values3, 0), sigma))
                                 .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
-                                .setMarker(SeriesMarkers.NONE)
-                                .setLineStyle(SeriesLines.DASH_DOT);
+                                .setMarker(SeriesMarkers.NONE);
                     }
 
 
@@ -2640,8 +2641,9 @@ public class graphs {
                     chart.getStyler().setDatePattern("dd-MMM");
                     chart.getStyler().setXAxisMin((double) (GIF_START_DATE.toInstant().toEpochMilli()));
                     chart.getStyler().setXAxisMax((double) (GIF_END_DATE.toInstant().toEpochMilli()));
-                    chart.getStyler().setYAxisMax(30000.0);
-                    chart.getStyler().setYAxisMin(-500.0);
+                    chart.getStyler().setYAxisMax(26000.0);
+                    chart.getStyler().setYAxisMin(0.0);
+                    chart.getStyler().setPlotContentSize(1.0);
 
                     {
                         Date firstAntigen = parseTimestamp(antigens.get(0).timestamp);
@@ -2694,44 +2696,43 @@ public class graphs {
                                     });
                             double value = pcrPositives + antigenPositives;
                             values.add(value);
-                            values2.add((value - 300) * 4 + 4000);
+                            values2.add(value);
+                            //values2.add((value - 300) * 4 + 4000);
                             values3.add(Math.max(pcrPositives, antigenPositives));
                             values3a.add(antigenPositives);
                             values3p.add(pcrPositives);
                             values3p2.add(pcrPositives + (firstAntigen.getTime() < timestamp.getTime() ?
                                     (trendGuessing ? pcrPositives * antigenRatio[0] : pcrPositives / FRACTION_OVER_40_YEARS_OLD * FRACTION_UNDER_40_YEARS_OLD) : 0));
                             values4.add((value - 7000) * 1.8 + 4000);
-                            values6.add(value * 10 + 4000);
+                            values6.add(value);
+                            //values6.add(value * 10 + 4000);
                             previous[0] = r;
                         });
-                        chart.addSeries("2021-2022 (#)x1", times, gaussianSmooth(replaceNulls(values, 0), sigma))
+                        chart.addSeries("2022-2023", times, gaussianSmooth(replaceNulls(values, 0), sigma))
                                 .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
                                 .setMarker(SeriesMarkers.NONE);
-                        chart.addSeries("2020-2021 (#-300)x4+4000", times2,
+                        chart.addSeries("2021-2022", times2,
                                         gaussianSmooth(replaceNulls(values2, 0), sigma))
                                 .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
                                 .setMarker(SeriesMarkers.NONE);
-                        chart.addSeries("2021-2022 (#)x1\nlower bound", times,
-                                        gaussianSmooth(replaceNulls(values3, 0), sigma))
-                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
-                                .setMarker(SeriesMarkers.NONE);
-                        if (guessAntigen) {
-                            chart.addSeries("2021-2022 (PCR only est)x1", times,
+
+                        if (false && guessAntigen) {
+                            chart.addSeries("2022-2023 (PCR only est)x1", times,
                                             gaussianSmooth(replaceNulls(values3p2, 0), sigma))
                                     .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
                                     .setMarker(SeriesMarkers.NONE)
                                     .setLineStyle(SeriesLines.DASH_DASH);
                         }
-                        // chart.addSeries("2019-2020 (#)x10+4000", times6, gaussianSmooth(replaceNulls(values6, 0),
-                        // sigma))
-                        //         .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
-                        //         .setMarker(SeriesMarkers.NONE);
-//                        chart.addSeries("2021-2022 (#)x1\nAntigen", times, gaussianSmooth(replaceNulls(values3a, 0)
+                        chart.addSeries("2020-2021", times6, gaussianSmooth(replaceNulls(values6, 0),
+                        sigma))
+                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
+                                .setMarker(SeriesMarkers.NONE);
+//                        chart.addSeries("2022-2023 (#)x1\nAntigen", times, gaussianSmooth(replaceNulls(values3a, 0)
 //                        , sigma))
 //                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
 //                                .setMarker(SeriesMarkers.NONE)
 //                                .setLineStyle(SeriesLines.DOT_DOT);
-//                        chart.addSeries("2021-2022 (#)x1\nPCR", times, gaussianSmooth(replaceNulls(values3p, 0),
+//                        chart.addSeries("2022-2023 (#)x1\nPCR", times, gaussianSmooth(replaceNulls(values3p, 0),
 //                        sigma))
 //                                .setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line)
 //                                .setMarker(SeriesMarkers.NONE)
