@@ -28,7 +28,7 @@ jobs:
         id: setup-java
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: '17'
       - run: curl -Ls https://sh.jbang.dev | bash -s - app setup && echo "/home/runner/.jbang/bin" >> $GITHUB_PATH && rm -f hook_post_*.sh
       - name: Graphs
         run: ./graphs.java
