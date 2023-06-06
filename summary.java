@@ -94,6 +94,17 @@ public class summary {
                         Paths.get("data/COVID-19_Laboratory_Testing_Time_Series.csv").toFile()).readAll();
 
         labTests.sort(Comparator.comparing(r -> r.timestamp));
+        {
+            LabTests t = null;
+            for (var i = labTests.iterator(); i.hasNext(); ) {
+                LabTests v = i.next();
+                if (t != null && v.timestamp.equals(t.timestamp)) {
+                    i.remove();
+                } else {
+                    t = v;
+                }
+            }
+        }
 
         List<Stats> stats = csvMapper.readerFor(Stats.class)
                 .with(schema)

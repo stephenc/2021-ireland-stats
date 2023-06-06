@@ -111,6 +111,17 @@ public class graphs {
         labTests.sort(Comparator.comparing(r -> r.timestamp));
         labTests.removeIf(r -> parseTimestamp(r.timestamp).toInstant()
                 .isAfter(cutOffDate));
+        {
+            LabTests t = null;
+            for (var i = labTests.iterator(); i.hasNext(); ) {
+                LabTests v = i.next();
+                if (t != null && v.timestamp.equals(t.timestamp)) {
+                    i.remove();
+                } else {
+                    t = v;
+                }
+            }
+        }
 
         List<Stats> stats = csvMapper.readerFor(Stats.class)
                 .with(schema)
