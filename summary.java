@@ -71,6 +71,8 @@ public class summary {
         }
     }
 
+    private static String twtyProfile;
+
     public static void main(String... args) throws IOException, InterruptedException {
 
         CsvMapper csvMapper = new CsvMapper();
@@ -129,7 +131,9 @@ public class summary {
                     tweeting = true;
                     break;
                 default:
-                    if (arg.startsWith("-")) {
+                    if (arg.toLowerCase(Locale.ENGLISH).startsWith("--twty-profile=")) {
+                        twtyProfile = arg.substring("--twty-profile=".length());
+                    } else if (arg.startsWith("-")) {
                         argDate = LocalDate.now().minusDays(Integer.parseInt(arg.substring(1)));
                     } else {
                         argDate = LocalDate.parse(arg);
@@ -900,9 +904,13 @@ public class summary {
     private static String previousThread(LocalDate summaryDate) throws IOException, InterruptedException {
         List<String> args = new ArrayList<>();
         args.add("twty");
+        if (twtyProfile != null) {
+            args.add("-a");
+            args.add(twtyProfile);
+        }
         args.add("-v");
         args.add("-s");
-        args.add(String.format("from:connolly_s -is:reply Ireland \"PCR lab tests %s\"", summaryDate.minusDays(1)));
+        args.add(String.format("from:IrlCovidData -is:reply Ireland \"PCR lab tests %s\"", summaryDate.minusDays(1)));
         Process process = new ProcessBuilder(args)
                 .redirectErrorStream(true)
                 .start();
@@ -950,6 +958,10 @@ public class summary {
             throws IOException, InterruptedException {
         List<String> args = new ArrayList<>();
         args.add("twty");
+        if (twtyProfile != null) {
+            args.add("-a");
+            args.add(twtyProfile);
+        }
         if (inReplyTo != null) {
             args.add("-i");
             args.add(inReplyTo);
