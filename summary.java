@@ -1,16 +1,26 @@
 ///usr/bin/env jbang "$0" "$@" ; exit $?
 //JAVA 11+
 //JAVAC_OPTIONS -Xlint:unchecked
-//DEPS com.fasterxml.jackson.core:jackson-databind:2.12.4
-//DEPS com.fasterxml.jackson.dataformat:jackson-dataformat-csv:2.12.2
+//DEPS com.fasterxml.jackson.core:jackson-databind:2.13.4.2
+//DEPS com.fasterxml.jackson.dataformat:jackson-dataformat-csv:2.13.2
 //DEPS org.apache.commons:commons-text:1.9
+//DEPS io.github.redouane59.twitter:twittered:2.22-SNAPSHOT
+//DEPS org.slf4j:slf4j-simple:1.7.36
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
+import io.github.redouane59.twitter.TwitterClient;
+import io.github.redouane59.twitter.signature.TwitterCredentials;
+import io.github.redouane59.twitter.dto.tweet.MediaCategory;
+import io.github.redouane59.twitter.dto.tweet.Tweet;
+import io.github.redouane59.twitter.dto.tweet.TweetParameters;
+import io.github.redouane59.twitter.dto.tweet.TweetParameters.Media;
+import io.github.redouane59.twitter.dto.tweet.TweetParameters.Reply;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
@@ -21,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.NoSuchElementException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -878,121 +889,41 @@ public class summary {
             System.out.println(message);
 
             message.setLength(0);
-            String previousThread = null;
-            try {
-                 previousThread = previousThread(summaryDate);
-            } catch (Exception e) {
-                // ignore in case twty cli command is not installed
-            }
-            if (previousThread != null) {
-                String dayOfWeek = summaryDate.minusDays(1).getDayOfWeek().toString();
-                message.append(dayOfWeek.charAt(0));
-                message.append(dayOfWeek.substring(1).toLowerCase(Locale.ENGLISH));
-                message.append("'s thread: https://twitter.com/connolly_s/status/");
-                message.append(previousThread);
-                System.out.println(message);
-                if (tweeting) {
-                    sendTweet(
-                            message,
-                            lastTweet
-                    );
-                }
-            }
         }
-    }
-
-    private static String previousThread(LocalDate summaryDate) throws IOException, InterruptedException {
-        List<String> args = new ArrayList<>();
-        args.add("twty");
-        if (twtyProfile != null) {
-            args.add("-a");
-            args.add(twtyProfile);
-        }
-        args.add("-v");
-        args.add("-s");
-        args.add(String.format("from:IrlCovidData -is:reply Ireland \"PCR lab tests %s\"", summaryDate.minusDays(1)));
-        Process process = new ProcessBuilder(args)
-                .redirectErrorStream(true)
-                .start();
-        String threadId = null;
-        int state = 0;
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream()))) {
-
-            String line;
-            while ((line = reader.readLine()) != null) {
-                switch (state) {
-                    case 0:
-                        if (line.startsWith("connolly_s:")) {
-                            state = 1;
-                        }
-                        break;
-                    case 1:
-                        int i = line.indexOf("PCR lab tests");
-                        if (line.startsWith("  Ireland") && i > 0 && i < 20) {
-                            state = 2;
-                        } else {
-                            state = 0;
-                        }
-                        break;
-                    case 2:
-                        if (line.matches("^\\s{2}\\d+")) {
-                            threadId = line.substring(2);
-                        }
-                        state = 0;
-                        break;
-                    default:
-                        state = 0;
-                        break;
-                }
-            }
-        }
-        int retVal = process.waitFor();
-        if (retVal != 0) {
-            throw new RuntimeException("forked process exited with " + retVal);
-        }
-        return threadId;
     }
 
     private static String sendTweet(StringBuffer message, String inReplyTo, Path... medias)
-            throws IOException, InterruptedException {
-        List<String> args = new ArrayList<>();
-        args.add("twty");
-        if (twtyProfile != null) {
-            args.add("-a");
-            args.add(twtyProfile);
+            throws IOException {
+        String apiKey = System.getenv("API_KEY");
+        String apiSecret = System.getenv("API_SECRET");
+        String accessToken = System.getenv("ACCESS_TOKEN");
+        String accessTokenSecret = System.getenv("ACCESS_TOKEN_SECRET");
+        String bearerToken = System.getenv("BEARER_TOKEN_SECRET");
+        TwitterClient twitterClient = new TwitterClient(new TwitterCredentials(apiKey, apiSecret, accessToken, accessTokenSecret, bearerToken));
+        var builder = TweetParameters.builder()
+                .text(message.toString());
+        if (inReplyTo != null && !inReplyTo.isEmpty()) {
+            builder.reply(Reply.builder().inReplyToTweetId(inReplyTo).build());
         }
-        if (inReplyTo != null) {
-            args.add("-i");
-            args.add(inReplyTo);
-        }
-        for (Path media : medias) {
-            args.add("-m");
-            args.add(media.toString());
-        }
-        args.add(message.toString());
-        Process process = new ProcessBuilder(args)
-                .redirectErrorStream(true)
-                .start();
-        Pattern tweeted = Pattern.compile("^tweeted:\\s+(\\d+)\\s*$");
-        String tweetId = null;
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream()))) {
-
-            String line;
-            while ((line = reader.readLine()) != null) {
-                System.err.println(line);
-                Matcher m = tweeted.matcher(line);
-                if (m.matches()) {
-                    tweetId = m.group(1);
-                }
+        var mediaIds = new ArrayList<String>();
+        for (var m: medias) {
+            var fileName = m.getFileName().toString();
+            if (fileName.endsWith(".gif")) {
+                var rsp = twitterClient.uploadChunkedMedia(m.toFile(), MediaCategory.TWEET_GIF).
+                orElseThrow(NoSuchElementException::new);
+                mediaIds.add(rsp.getMediaId());
+            } else {
+                var rsp = twitterClient.uploadMedia(m.toFile(), fileName.endsWith(".gif") ? MediaCategory.TWEET_GIF : MediaCategory.TWEET_IMAGE);
+                mediaIds.add(rsp.getMediaId());
             }
         }
-        int retVal = process.waitFor();
-        if (retVal != 0) {
-            throw new RuntimeException("forked process exited with " + retVal);
+        if (!mediaIds.isEmpty()) {
+            builder.media(Media.builder().mediaIds(mediaIds).build());
         }
-        return tweetId;
+        Tweet tweet = twitterClient.postTweet(builder.build());
+
+        System.out.println(">>> Tweeted as tweetId: " + tweet.getId());
+        return tweet.getId();
     }
 
     private static OffsetDateTime parseTimestamp(String v1) {
