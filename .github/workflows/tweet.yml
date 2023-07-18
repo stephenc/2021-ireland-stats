@@ -34,9 +34,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - run: curl -Ls https://sh.jbang.dev | bash -s - app setup && echo "/home/runner/.jbang/bin" >> $GITHUB_PATH && rm -f hook_post_*.sh
-      - uses: actions/setup-go@v3
-        with:
-          go-version: '>=1.18.0'
       - name: Update Graphs
         run: ./graphs.java ${{ inputs.date_offset }}
       - name: Tweets
