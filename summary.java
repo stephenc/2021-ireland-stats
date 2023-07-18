@@ -4,7 +4,7 @@
 //DEPS com.fasterxml.jackson.core:jackson-databind:2.13.4.2
 //DEPS com.fasterxml.jackson.dataformat:jackson-dataformat-csv:2.13.2
 //DEPS org.apache.commons:commons-text:1.9
-//DEPS io.github.redouane59.twitter:twittered:2.22-SNAPSHOT
+//DEPS io.github.redouane59.twitter:twittered:2.23
 //DEPS org.slf4j:slf4j-simple:1.7.36
 
 import com.fasterxml.jackson.annotation.JsonProperty;
