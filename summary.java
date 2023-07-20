@@ -922,8 +922,13 @@ public class summary {
         }
         Tweet tweet = twitterClient.postTweet(builder.build());
 
-        System.out.println(">>> Tweeted as tweetId: " + tweet.getId());
-        return tweet.getId();
+        String id = tweet.getId();
+        if (id != null) {
+            System.out.println(">>> Tweeted as tweetId: " + tweet.getId());
+            return tweet.getId();
+        } else {
+            return inReplyTo;
+        }
     }
 
     private static OffsetDateTime parseTimestamp(String v1) {
