@@ -1,7 +1,1 @@
-<html>
-<head><title>404 Not Found</title></head>
-<body>
-<center><h1>404 Not Found</h1></center>
-<hr><center>nginx</center>
-</body>
-</html>
+{"errors":[{"title":"Server Error","status":500,"message":"request to https://services1.arcgis.com/eNO7HHeQ3rUcBllm/arcgis/rest/services/Covid19CountyStatisticsHPSCIreland/FeatureServer/0?f=json failed, reason: getaddrinfo EAI_AGAIN services1.arcgis.com"}],"meta":{}}
