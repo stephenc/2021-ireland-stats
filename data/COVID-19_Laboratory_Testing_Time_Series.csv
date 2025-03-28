@@ -1,7 +1,1 @@
-<html>
-<head><title>404 Not Found</title></head>
-<body>
-<center><h1>404 Not Found</h1></center>
-<hr><center>nginx</center>
-</body>
-</html>
+{"errors":[{"title":"Server Error","status":500,"message":"request to https://services-eu1.arcgis.com/z6bHNio59iTqqSUY/arcgis/rest/services/LaboratoryLocalTimeSeriesHistoricView/FeatureServer/0?f=json failed, reason: getaddrinfo EAI_AGAIN services-eu1.arcgis.com"}],"meta":{}}
