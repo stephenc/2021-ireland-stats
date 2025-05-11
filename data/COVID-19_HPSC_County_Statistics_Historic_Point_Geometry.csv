@@ -1,1 +1,1 @@
-{"message":"Up to date download file is being generated. Please check back again later.","status":"Pending","created":"2025-05-09T05:01:36.687Z","modified":"2025-05-09T05:01:36.687Z"}
+{"statusCode":400,"message":"Downloads are not supported for this item.","error":"Bad Request"}
