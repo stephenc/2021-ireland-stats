@@ -1,3 +1,1 @@
-﻿<?xml version="1.0" encoding="utf-8"?><Error><Code>AuthenticationFailed</Code><Message>Server failed to authenticate the request. Make sure the value of Authorization header is formed correctly including the signature.
-RequestId:d0801607-d01e-0085-5255-c944f3000000
-Time:2025-05-20T07:08:16.7116461Z</Message><AuthenticationErrorDetail>Signed expiry time [Tue, 20 May 2025 07:05:59 GMT] must be after signed start time [Tue, 20 May 2025 07:08:16 GMT]</AuthenticationErrorDetail></Error>
+{"message":"Up to date download file is being generated. Please check back again later.","status":"Pending","created":"2025-05-20T10:08:25.280Z","modified":"2025-05-20T10:08:25.280Z"}
