@@ -1,1 +1,1 @@
-{"message":"Error getting download status from Hub download system"}
+{"message":"fetch failed","error":"Internal Server Error","statusCode":500}
