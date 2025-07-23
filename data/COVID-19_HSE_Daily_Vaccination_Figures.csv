@@ -1,1 +1,1 @@
-{"message":"Downloads are not supported for this item.","error":"Bad Request","statusCode":400}
+{"message":"Error getting download status from Hub download system"}
