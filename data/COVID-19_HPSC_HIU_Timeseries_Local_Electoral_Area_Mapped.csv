@@ -1,1 +1,1 @@
-{"message":"fetch failed","error":"Internal Server Error","statusCode":500}
+{"errors":{"message":"request to https://services-eu1.arcgis.com/z6bHNio59iTqqSUY/arcgis/rest/services/COVID19_HPSC_HIU_Timeseries_Local_Electoral_Area_Mapped/FeatureServer/0?f=json failed, reason: getaddrinfo EAI_AGAIN services-eu1.arcgis.com"},"meta":{}}
