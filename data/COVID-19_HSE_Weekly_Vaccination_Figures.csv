@@ -1,1 +1,1 @@
-{"message":"Cannot fetch content entity with id 0101ed10351e42968535bb002f94c8c6"}
+{"errors":{"message":"request to https://services-eu1.arcgis.com/z6bHNio59iTqqSUY/arcgis/rest/services/COVID19_Weekly_Vaccination_Figures/FeatureServer/0?f=json failed, reason: getaddrinfo EAI_AGAIN services-eu1.arcgis.com"},"meta":{}}
