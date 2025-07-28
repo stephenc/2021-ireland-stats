@@ -1,1 +1,1 @@
-{"errors":{"message":"request to https://services-eu1.arcgis.com/z6bHNio59iTqqSUY/arcgis/rest/services/COVID19_HSE_vaccine_booster_dose_daily/FeatureServer/0?f=json failed, reason: getaddrinfo EAI_AGAIN services-eu1.arcgis.com"},"meta":{}}
+{"message":"Downloads are not supported for this item.","error":"Bad Request","statusCode":400}
