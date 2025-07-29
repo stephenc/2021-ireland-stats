@@ -1,1 +1,1 @@
-{"message":"Error getting download status from Hub download system"}
+{"errors":{"message":"request to https://services-eu1.arcgis.com/z6bHNio59iTqqSUY/arcgis/rest/services/COVID19_Daily_Vaccination/FeatureServer/0?f=json failed, reason: getaddrinfo EAI_AGAIN services-eu1.arcgis.com"},"meta":{}}
