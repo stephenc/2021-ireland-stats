@@ -1,1 +1,1 @@
-{"message":"fetch failed","error":"Internal Server Error","statusCode":500}
+{"message":"Downloads are not supported for this item.","error":"Bad Request","statusCode":400}
