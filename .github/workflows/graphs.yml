@@ -16,8 +16,8 @@
 name: Graphs
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '10 16 * * *' # every day at 4:10pm
+  #schedule:
+  #  - cron: '10 16 * * *' # every day at 4:10pm
 jobs:
   build:
     name: Graph
